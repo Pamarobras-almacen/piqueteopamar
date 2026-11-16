@@ -94,6 +94,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .kit-btn .kit-info{font-size:10px;font-weight:400;color:var(--gray);display:block;margin-top:2px}
 .kit-manage-btn{background:none;border:1.5px dashed var(--edenor);color:var(--edenor);border-radius:8px;padding:5px 10px;font-size:11px;font-weight:600;cursor:pointer}
 .kit-manage-btn:active{background:var(--edenor-lt)}
+.kit-undo-btn{width:100%;margin-top:8px;padding:10px;background:var(--danger-lt);color:var(--danger);border:1.5px solid var(--danger);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer}
+.kit-undo-btn:active{background:var(--danger);color:#fff}
 .kit-empty{font-size:11px;color:var(--gray);padding:6px 0}
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100;display:flex;align-items:center;justify-content:center;padding:16px}
 .modal-box{background:#fff;border-radius:14px;padding:18px;width:100%;max-width:400px;max-height:85vh;overflow-y:auto}
@@ -278,6 +280,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
     </div>
     <div class="kit-cat-tabs" id="kitCatTabs"></div>
     <div id="kitButtons" class="kit-btns"></div>
+    <button id="kitUndoBtn" class="kit-undo-btn" style="display:none" onclick="undoKit()">↩ Deshacer último kit</button>
   </div>
 
   <!-- Kit editor modal -->
@@ -780,10 +783,14 @@ function renderKits(){
 
 function switchKitCat(c){ currentKitCat = c; renderKits(); }
 
+let grillaSnapshot = null;
+
 function applyKit(idx){
   const kits = loadKits();
   const kit = kits[idx];
   if(!kit) return;
+  // Guardar snapshot para deshacer
+  grillaSnapshot = JSON.parse(JSON.stringify(grilla));
   let added = 0, notFound = [];
   kit.items.forEach(it => {
     const m = matLookup(it.mat);
@@ -796,11 +803,23 @@ function applyKit(idx){
   });
   renderGrilla();
   autoSave();
+  // Mostrar botón deshacer
+  document.getElementById('kitUndoBtn').style.display = 'block';
   if(notFound.length){
     toast('⚠️ Kit "'+kit.name+'": '+added+' ok, no encontradas: '+notFound.join(', '),'err');
   } else {
     toast('✓ Kit "'+kit.name+'" → Piq '+currentPiq+' ('+added+' mat.)');
   }
+}
+
+function undoKit(){
+  if(!grillaSnapshot) return;
+  grilla = grillaSnapshot;
+  grillaSnapshot = null;
+  document.getElementById('kitUndoBtn').style.display = 'none';
+  renderGrilla();
+  autoSave();
+  toast('↩ Kit deshecho');
 }
 
 let kitEditIndex = -1;
