@@ -78,11 +78,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .grilla{width:100%;border-collapse:collapse;font-size:11.5px;min-width:400px}
 .grilla th{background:var(--steel);color:#fff;padding:8px 10px;text-align:center;font-weight:600;font-size:10.5px;position:sticky;top:0;white-space:nowrap}
 .grilla th:first-child,.grilla th:nth-child(2){text-align:left}
+.grilla th:first-child{position:sticky;left:0;z-index:3;background:var(--steel)}
+.grilla th:nth-child(2){position:sticky;left:70px;z-index:3;background:var(--steel)}
 .grilla td{padding:6px 8px;border-bottom:1px solid #eef1f4;text-align:center}
-.grilla td:first-child{font-weight:700;color:var(--steel);text-align:left;font-size:11px}
-.grilla td:nth-child(2){text-align:left;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px}
+.grilla td:first-child{font-weight:700;color:var(--steel);text-align:left;font-size:11px;position:sticky;left:0;z-index:1;background:#fff}
+.grilla td:nth-child(2){text-align:left;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;position:sticky;left:70px;z-index:1;background:#fff}
 @media(min-width:768px){.grilla td:nth-child(2){max-width:300px}.grilla td{padding:6px 10px}}
 .grilla td.has-val{background:#e8f5e9;font-weight:700;color:#2e7d32}
+.grilla tr:nth-child(even) td:first-child,.grilla tr:nth-child(even) td:nth-child(2){background:#f8f9fa}
+.grilla tr:hover td:first-child,.grilla tr:hover td:nth-child(2){background:#eef5ee}
 .grilla td.total-col{background:var(--edenor-lt);font-weight:700;color:var(--steel)}
 .grilla .del-btn{background:none;border:none;color:var(--danger);cursor:pointer;font-size:14px;padding:2px}
 /* ── KITS ── */
