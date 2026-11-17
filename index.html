@@ -86,7 +86,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 @media(min-width:768px){.grilla td:nth-child(2){max-width:300px}.grilla td{padding:6px 10px}}
 .grilla td.has-val{background:#e8f5e9;font-weight:700;color:#2e7d32}
 .grilla tr:nth-child(even) td:first-child,.grilla tr:nth-child(even) td:nth-child(2){background:#f8f9fa}
-.grilla tr:hover td:first-child,.grilla tr:hover td:nth-child(2){background:#eef5ee}
+.grilla tr:hover td{background:rgba(37,87,58,.08)}
+.grilla tr:hover td:first-child,.grilla tr:hover td:nth-child(2){background:#e0eed8}
+.grilla td.col-highlight{background:rgba(37,87,58,.08) !important}
 .grilla td.total-col{background:var(--edenor-lt);font-weight:700;color:var(--steel)}
 .grilla .del-btn{background:none;border:none;color:var(--danger);cursor:pointer;font-size:14px;padding:2px}
 /* ── KITS ── */
@@ -726,6 +728,23 @@ function renderGrilla(){
       <td><button class="del-btn" onclick="deleteMaterial('${esc(mat)}')">✕</button></td>
     </tr>`;
   }).join('');
+
+  // Cruz highlight
+  const table = document.querySelector('.grilla');
+  if(table){
+    table.addEventListener('mouseover', function(e){
+      const td = e.target.closest('td');
+      if(!td) return;
+      const idx = td.cellIndex;
+      table.querySelectorAll('.col-highlight').forEach(c => c.classList.remove('col-highlight'));
+      table.querySelectorAll('tr').forEach(r => {
+        if(r.cells[idx]) r.cells[idx].classList.add('col-highlight');
+      });
+    });
+    table.addEventListener('mouseleave', function(){
+      table.querySelectorAll('.col-highlight').forEach(c => c.classList.remove('col-highlight'));
+    });
+  }
 }
 
 // ── KITS ──
