@@ -88,10 +88,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .kit-cat-tab{padding:7px 14px;font-size:12px;font-weight:700;color:var(--gray);background:none;border:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px}
 .kit-cat-tab.active{color:var(--edenor);border-bottom-color:var(--edenor)}
 .kit-cat-tab:active{background:var(--edenor-lt)}
-.kit-btns{display:flex;flex-wrap:wrap;gap:6px}
-.kit-btn{background:var(--edenor-lt);color:var(--steel);border:1.5px solid var(--edenor);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer;position:relative}
+.kit-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.kit-btn{background:var(--edenor-lt);color:var(--steel);border:1.5px solid var(--edenor);border-radius:10px;padding:14px 10px 8px;font-size:14px;font-weight:700;cursor:pointer;position:relative;text-align:center;min-height:48px;display:flex;flex-direction:column;align-items:center;justify-content:center}
 .kit-btn:active{background:var(--edenor);color:#fff}
-.kit-btn .kit-info{font-size:10px;font-weight:400;color:var(--gray);display:block;margin-top:2px}
+.kit-btn .kit-info{display:none}
 .kit-manage-btn{background:none;border:1.5px dashed var(--edenor);color:var(--edenor);border-radius:8px;padding:5px 10px;font-size:11px;font-weight:600;cursor:pointer}
 .kit-manage-btn:active{background:var(--edenor-lt)}
 .kit-undo-btn{width:100%;margin-top:8px;padding:10px;background:var(--danger-lt);color:var(--danger);border:1.5px solid var(--danger);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer}
@@ -110,8 +110,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .kit-add-row input{border:1px solid var(--line);border-radius:6px;padding:7px 9px;font-size:13px}
 .btn-sm-green{background:var(--edenor);color:#fff;border:none;border-radius:6px;padding:7px 12px;font-size:14px;font-weight:700;cursor:pointer}
 .btn-secondary{padding:11px;background:var(--panel);color:var(--ink);border:1.5px solid var(--line);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer}
-.kit-actions{display:flex;gap:4px;margin-left:auto}
-.kit-actions button{background:none;border:none;cursor:pointer;font-size:12px;padding:2px}
+.kit-actions{display:flex;gap:6px;margin-top:4px}
+.kit-actions button{background:none;border:none;cursor:pointer;font-size:11px;padding:2px;opacity:0.6}
 
 .editable-cell{cursor:pointer;position:relative}
 .editable-cell:active{background:#fff9c4!important}
