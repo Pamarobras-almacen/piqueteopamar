@@ -887,9 +887,6 @@ function showKitEditor(idx){
   } else {
     document.getElementById('kitModalTitle').textContent = 'Crear kit';
   }
-  // Actualizar datalist con categorías existentes
-  const cats = getKitCats(loadKits());
-  document.getElementById('kit-cat-list').innerHTML = cats.map(c => `<option value="${esc(c)}">`).join('');
   renderKitItems();
   document.getElementById('kitModal').style.display = 'flex';
   document.getElementById('kit-name').focus();
