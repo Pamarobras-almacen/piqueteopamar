@@ -303,8 +303,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
       <h4 id="kitModalTitle">Crear kit</h4>
       <div class="pf"><label>Tipo</label>
         <select id="kit-tipo" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:8px;font-size:14px;background:#f7f9fb">
-          <option value="AÉREO">AÉREO</option>
-          <option value="SUBTERRÁNEO">SUBTERRÁNEO</option>
+          <option value="AEREO">AÉREO</option>
+          <option value="SUBTERRANEO">SUBTERRÁNEO</option>
         </select>
       </div>
       <div class="pf"><label>Tensión</label>
@@ -759,12 +759,13 @@ function renderGrilla(){
 
 // ── KITS ──
 const DEFAULT_KITS = [
-  { name: 'Sostén', tipo: 'AÉREO', cat: 'BT', items: [{mat:'3115',cant:1},{mat:'212',cant:2},{mat:'283',cant:2},{mat:'3635',cant:1},{mat:'3643',cant:1}] },
-  { name: 'Retención', tipo: 'AÉREO', cat: 'BT', items: [{mat:'212',cant:2},{mat:'283',cant:2},{mat:'3115',cant:1},{mat:'3232',cant:1},{mat:'3638',cant:1}] }
+  { name: 'Sostén', tipo: 'AEREO', cat: 'BT', items: [{mat:'3115',cant:1},{mat:'212',cant:2},{mat:'283',cant:2},{mat:'3635',cant:1},{mat:'3643',cant:1}] },
+  { name: 'Retención', tipo: 'AEREO', cat: 'BT', items: [{mat:'212',cant:2},{mat:'283',cant:2},{mat:'3115',cant:1},{mat:'3232',cant:1},{mat:'3638',cant:1}] }
 ];
 
-let currentKitType = 'AÉREO';
+let currentKitType = 'AEREO';
 let currentKitCat = 'BT';
+const KIT_TYPE_LABELS = {'AEREO':'AÉREO','SUBTERRANEO':'SUBTERRÁNEO'};
 
 function loadKits(){
   try {
@@ -772,7 +773,7 @@ function loadKits(){
     if(saved){
       const kits = JSON.parse(saved);
       // Migrar kits viejos sin categoría o tipo
-      kits.forEach(k => { if(!k.cat) k.cat = 'BT'; if(!k.tipo) k.tipo = 'AÉREO'; });
+      kits.forEach(k => { if(!k.cat) k.cat = 'BT'; if(!k.tipo) k.tipo = 'AEREO'; else if(k.tipo==='AÉREO') k.tipo='AEREO'; else if(k.tipo==='SUBTERRÁNEO') k.tipo='SUBTERRANEO'; });
       return kits;
     }
     return DEFAULT_KITS.map(k => ({...k, items: k.items.map(i => ({...i}))}));
@@ -781,7 +782,7 @@ function loadKits(){
 function saveKits(kits){ localStorage.setItem('piq_kits', JSON.stringify(kits)); }
 
 function getKitTypes(){
-  return ['AÉREO','SUBTERRÁNEO'];
+  return ['AEREO','SUBTERRANEO'];
 }
 
 function getKitCats(){
@@ -797,7 +798,7 @@ function renderKits(){
 
   // Render type tabs (AÉREO / SUBTERRÁNEO)
   typeTabsBox.innerHTML = getKitTypes().map(t =>
-    `<button class="kit-type-tab ${t===currentKitType?'active':''}" onclick="switchKitType('${esc(t)}')">${esc(t)}</button>`
+    `<button class="kit-type-tab ${t===currentKitType?'active':''}" onclick="switchKitType('${t}')">${KIT_TYPE_LABELS[t]||t}</button>`
   ).join('');
 
   // Render cat tabs (BT / MT)
@@ -806,9 +807,9 @@ function renderKits(){
   ).join('');
 
   // Render kits filtrados por tipo y categoría
-  const filtered = kits.map((k,i) => ({...k, _idx:i})).filter(k => (k.tipo || 'AÉREO') === currentKitType && k.cat === currentKitCat);
+  const filtered = kits.map((k,i) => ({...k, _idx:i})).filter(k => (k.tipo || 'AEREO') === currentKitType && k.cat === currentKitCat);
   if(!filtered.length){
-    box.innerHTML = '<div class="kit-empty">No hay kits en '+esc(currentKitType)+' › '+esc(currentKitCat)+'. Creá uno con el botón +</div>';
+    box.innerHTML = '<div class="kit-empty">No hay kits en '+(KIT_TYPE_LABELS[currentKitType]||currentKitType)+' › '+esc(currentKitCat)+'. Creá uno con el botón +</div>';
     return;
   }
   box.innerHTML = filtered.map(k => {
@@ -873,13 +874,13 @@ function showKitEditor(idx){
   kitEditIndex = (idx !== undefined) ? idx : -1;
   kitTempItems = [];
   document.getElementById('kit-name').value = '';
-  document.getElementById('kit-tipo').value = currentKitType || 'AÉREO';
+  document.getElementById('kit-tipo').value = currentKitType || 'AEREO';
   document.getElementById('kit-cat').value = currentKitCat || 'BT';
   if(kitEditIndex >= 0){
     const kits = loadKits();
     const k = kits[kitEditIndex];
     document.getElementById('kit-name').value = k.name;
-    document.getElementById('kit-tipo').value = k.tipo || 'AÉREO';
+    document.getElementById('kit-tipo').value = k.tipo || 'AEREO';
     document.getElementById('kit-cat').value = k.cat || 'BT';
     kitTempItems = k.items.map(it => ({...it}));
     document.getElementById('kitModalTitle').textContent = 'Editar kit';
@@ -947,7 +948,7 @@ function kitRemoveItem(i){
 
 function kitSave(){
   const name = document.getElementById('kit-name').value.trim();
-  const tipo = document.getElementById('kit-tipo').value || 'AÉREO';
+  const tipo = document.getElementById('kit-tipo').value || 'AEREO';
   const cat = (document.getElementById('kit-cat').value.trim() || 'BT').toUpperCase();
   if(!name){ toast('Poné un nombre al kit','err'); return; }
   if(!kitTempItems.length){ toast('Agregá al menos un material','err'); return; }
