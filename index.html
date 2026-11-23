@@ -60,12 +60,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .piq-chip{padding:7px 14px;border:2px solid var(--line);border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;background:#fff;color:var(--gray);transition:all .15s}
 .piq-chip.active{border-color:var(--edenor);background:var(--edenor);color:#fff}
 .piq-add{padding:7px 12px;border:2px dashed var(--line);border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;background:transparent;color:var(--gray)}
-/* ── VOZ ── */
-.voice-btn{width:56px;height:56px;border-radius:50%;border:3px solid var(--edenor);background:#fff;color:var(--edenor);font-size:24px;cursor:pointer;position:fixed;bottom:24px;right:24px;z-index:50;box-shadow:0 4px 16px rgba(0,0,0,.18);transition:all .2s;display:flex;align-items:center;justify-content:center}
-.voice-btn.listening{background:var(--danger);border-color:var(--danger);color:#fff;animation:pulse-mic 1s infinite}
-@keyframes pulse-mic{0%,100%{box-shadow:0 0 0 0 rgba(220,53,69,.5)}50%{box-shadow:0 0 0 14px rgba(220,53,69,0)}}
-.voice-log{position:fixed;bottom:90px;right:16px;left:16px;max-width:400px;margin-left:auto;background:rgba(37,87,58,.95);color:#fff;padding:10px 14px;border-radius:12px;font-size:13px;font-weight:600;z-index:50;display:none;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,.2)}
-.voice-log.show{display:block}
+/* ── COMANDO RAPIDO ── */
+.voice-btn{width:56px;height:56px;border-radius:50%;border:3px solid var(--edenor);background:#fff;color:var(--edenor);font-size:24px;cursor:pointer;position:fixed;bottom:24px;right:24px;z-index:55;box-shadow:0 4px 16px rgba(0,0,0,.18);transition:all .2s;display:none;align-items:center;justify-content:center}
 .piq-edit{display:flex;gap:6px;align-items:center}
 .piq-edit input{width:80px;padding:5px 8px;border:1px solid var(--edenor);border-radius:6px;font-size:12px;font-weight:700;text-align:center}
 .piq-edit button{padding:5px 10px;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer}
@@ -397,7 +393,7 @@ function showScreen(name){
   // Mostrar botón voz solo en pantalla de trabajo
   const vb = document.getElementById('voiceBtn');
   if(vb) vb.style.display = (name === 'work') ? 'flex' : 'none';
-  if(name !== 'work' && voiceActive) stopVoice();
+  if(name !== 'work' && cmdBarVisible) toggleCmdBar();
 }
 
 // ── MATERIALES FROM GOOGLE SHEET ──
@@ -1291,106 +1287,35 @@ function toast(msg, type='ok'){
 }
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
-// ── VOZ ──
-let voiceActive = false;
-let recognition = null;
-let voiceTimer = null;
+// ── COMANDO RAPIDO ──
+let cmdBarVisible = false;
 
-function initVoice(){
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if(!SR){ document.getElementById('voiceBtn').style.display='none'; return false; }
-  recognition = new SR();
-  recognition.lang = 'es';
-  recognition.continuous = false;
-  recognition.interimResults = true;
-  recognition.onresult = function(e){
-    clearTimeout(voiceTimer);
-    for(let i = e.resultIndex; i < e.results.length; i++){
-      if(e.results[i].isFinal){
-        var txt = e.results[i][0].transcript.trim();
-        voiceLog('Escuche: "'+txt+'"');
-        processVoice(txt);
-        // Después de procesar, volver a escuchar
-        setTimeout(function(){ if(voiceActive) listenOnce(); }, 1500);
-      } else {
-        voiceLog('... '+e.results[i][0].transcript);
-      }
-    }
-  };
-  recognition.onerror = function(e){
-    clearTimeout(voiceTimer);
-    if(e.error==='aborted') return;
-    if(e.error==='no-speech'){
-      voiceLog('No escuche nada. Toca el mic y habla.');
-      setVoiceReady();
-      return;
-    }
-    if(e.error==='not-allowed'){
-      voiceLog('Permiti el microfono en Ajustes de Chrome');
-      stopVoice();
-      return;
-    }
-    if(e.error==='network'){
-      voiceLog('Sin internet - la voz necesita conexion');
-      stopVoice();
-      return;
-    }
-    voiceLog('Error: '+e.error+'. Toca el mic de nuevo.');
-    setVoiceReady();
-  };
-  recognition.onend = function(){
-    clearTimeout(voiceTimer);
-    if(voiceActive){
-      setVoiceReady();
-    }
-  };
-  return true;
+function toggleCmdBar(){
+  const bar = document.getElementById('cmdBar');
+  cmdBarVisible = !cmdBarVisible;
+  bar.style.display = cmdBarVisible ? 'flex' : 'none';
+  if(cmdBarVisible){
+    const inp = document.getElementById('cmdInput');
+    inp.value = '';
+    inp.focus();
+  }
 }
 
-function listenOnce(){
-  if(!voiceActive) return;
-  document.getElementById('voiceBtn').classList.add('listening');
-  voiceLog('Habla ahora...');
-  try{ recognition.start(); }catch(e){ return; }
-  // Timeout de seguridad: si en 8s no pasa nada, resetear
-  voiceTimer = setTimeout(function(){
-    try{ recognition.stop(); }catch(e){}
-    if(voiceActive){
-      voiceLog('No escuche nada. Toca el mic.');
-      setVoiceReady();
-    }
-  }, 8000);
+function runCmd(){
+  const inp = document.getElementById('cmdInput');
+  const text = inp.value.trim();
+  if(!text) return;
+  inp.value = '';
+  processVoice(text);
+  inp.focus();
 }
 
-function setVoiceReady(){
-  document.getElementById('voiceBtn').classList.remove('listening');
-  if(voiceActive) voiceLog('Toca el mic para otro comando');
-}
-
-function toggleVoice(){
-  if(!recognition){ if(!initVoice()){ toast('Tu navegador no soporta voz','err'); return; } }
-  if(voiceActive) stopVoice(); else startVoice();
-}
-
-function startVoice(){
-  voiceActive = true;
-  document.getElementById('voiceLog').classList.add('show');
-  listenOnce();
-}
-
-function stopVoice(){
-  voiceActive = false;
-  clearTimeout(voiceTimer);
-  document.getElementById('voiceBtn').classList.remove('listening');
-  document.getElementById('voiceLog').classList.remove('show');
-  try{ recognition.stop(); }catch(e){}
-  try{ recognition.abort(); }catch(e){}
+function cmdKey(e){
+  if(e.key==='Enter'){ e.preventDefault(); runCmd(); }
 }
 
 function voiceLog(msg){
-  const el = document.getElementById('voiceLog');
-  el.textContent = msg;
-  el.classList.add('show');
+  toast(msg);
 }
 
 function normalizeText(t){
@@ -1497,7 +1422,10 @@ function processVoice(text){
 function fmtN(n){ return Number(n).toLocaleString('es-AR'); }
 function today(){ return new Date().toISOString().slice(0,10); }
 </script>
-<button id="voiceBtn" class="voice-btn" onclick="toggleVoice()" title="Comando por voz" style="display:none">🎤</button>
-<div id="voiceLog" class="voice-log"></div>
+<button id="voiceBtn" class="voice-btn" onclick="toggleCmdBar()" title="Comando rápido">⚡</button>
+<div id="cmdBar" style="display:none;position:fixed;bottom:90px;left:12px;right:12px;max-width:420px;margin-left:auto;background:rgba(37,87,58,.97);padding:10px;border-radius:14px;z-index:55;box-shadow:0 4px 24px rgba(0,0,0,.3);gap:8px;align-items:center">
+  <input id="cmdInput" type="text" placeholder="piquete 1, sostén, 212 por 2..." onkeydown="cmdKey(event)" style="flex:1;padding:10px 12px;border-radius:10px;border:none;font-size:15px;background:#fff;color:#111" inputmode="text" autocomplete="off" x-webkit-speech>
+  <button onclick="runCmd()" style="padding:10px 16px;border-radius:10px;border:none;background:var(--accent);color:#111;font-weight:700;font-size:14px;cursor:pointer">OK</button>
+</div>
 </body>
 </html>
