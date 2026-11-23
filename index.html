@@ -1294,34 +1294,39 @@ function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
 // ── VOZ ──
 let voiceActive = false;
 let recognition = null;
+let voiceTimer = null;
 
 function initVoice(){
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if(!SpeechRecognition){ document.getElementById('voiceBtn').style.display='none'; return; }
-  recognition = new SpeechRecognition();
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SR){ document.getElementById('voiceBtn').style.display='none'; return false; }
+  recognition = new SR();
   recognition.lang = 'es';
   recognition.continuous = false;
   recognition.interimResults = true;
-  recognition.maxAlternatives = 3;
   recognition.onresult = function(e){
+    clearTimeout(voiceTimer);
     for(let i = e.resultIndex; i < e.results.length; i++){
       if(e.results[i].isFinal){
-        processVoice(e.results[i][0].transcript.trim());
+        var txt = e.results[i][0].transcript.trim();
+        voiceLog('Escuche: "'+txt+'"');
+        processVoice(txt);
+        // Después de procesar, volver a escuchar
+        setTimeout(function(){ if(voiceActive) listenOnce(); }, 1500);
       } else {
         voiceLog('... '+e.results[i][0].transcript);
       }
     }
   };
-  recognition.onaudiostart = function(){ voiceLog('Mic OK - habla ahora'); };
-  recognition.onspeechstart = function(){ voiceLog('Te escucho...'); };
   recognition.onerror = function(e){
+    clearTimeout(voiceTimer);
+    if(e.error==='aborted') return;
     if(e.error==='no-speech'){
-      voiceLog('No escuche nada - habla mas fuerte y cerca');
+      voiceLog('No escuche nada. Toca el mic y habla.');
+      setVoiceReady();
       return;
     }
-    if(e.error==='aborted') return;
     if(e.error==='not-allowed'){
-      voiceLog('Permiti el microfono en Ajustes');
+      voiceLog('Permiti el microfono en Ajustes de Chrome');
       stopVoice();
       return;
     }
@@ -1330,34 +1335,56 @@ function initVoice(){
       stopVoice();
       return;
     }
-    voiceLog('Error: '+e.error);
+    voiceLog('Error: '+e.error+'. Toca el mic de nuevo.');
+    setVoiceReady();
   };
   recognition.onend = function(){
+    clearTimeout(voiceTimer);
     if(voiceActive){
-      setTimeout(function(){ try{ recognition.start(); }catch(ex){} }, 500);
+      setVoiceReady();
     }
   };
+  return true;
+}
+
+function listenOnce(){
+  if(!voiceActive) return;
+  document.getElementById('voiceBtn').classList.add('listening');
+  voiceLog('Habla ahora...');
+  try{ recognition.start(); }catch(e){ return; }
+  // Timeout de seguridad: si en 8s no pasa nada, resetear
+  voiceTimer = setTimeout(function(){
+    try{ recognition.stop(); }catch(e){}
+    if(voiceActive){
+      voiceLog('No escuche nada. Toca el mic.');
+      setVoiceReady();
+    }
+  }, 8000);
+}
+
+function setVoiceReady(){
+  document.getElementById('voiceBtn').classList.remove('listening');
+  if(voiceActive) voiceLog('Toca el mic para otro comando');
 }
 
 function toggleVoice(){
-  if(!recognition) initVoice();
-  if(!recognition){ toast('Tu navegador no soporta voz','err'); return; }
+  if(!recognition){ if(!initVoice()){ toast('Tu navegador no soporta voz','err'); return; } }
   if(voiceActive) stopVoice(); else startVoice();
 }
 
 function startVoice(){
   voiceActive = true;
-  document.getElementById('voiceBtn').classList.add('listening');
   document.getElementById('voiceLog').classList.add('show');
-  voiceLog('🎤 Escuchando... Decí un comando');
-  try{ recognition.start(); }catch(e){}
+  listenOnce();
 }
 
 function stopVoice(){
   voiceActive = false;
+  clearTimeout(voiceTimer);
   document.getElementById('voiceBtn').classList.remove('listening');
   document.getElementById('voiceLog').classList.remove('show');
   try{ recognition.stop(); }catch(e){}
+  try{ recognition.abort(); }catch(e){}
 }
 
 function voiceLog(msg){
