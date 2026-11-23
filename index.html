@@ -1300,32 +1300,40 @@ function initVoice(){
   if(!SpeechRecognition){ document.getElementById('voiceBtn').style.display='none'; return; }
   recognition = new SpeechRecognition();
   recognition.lang = 'es-AR';
-  recognition.continuous = true;
-  recognition.interimResults = false;
+  recognition.continuous = false;
+  recognition.interimResults = true;
   recognition.onresult = function(e){
     for(let i = e.resultIndex; i < e.results.length; i++){
       if(e.results[i].isFinal){
         processVoice(e.results[i][0].transcript.trim());
+      } else {
+        voiceLog('... '+e.results[i][0].transcript);
       }
     }
   };
+  recognition.onaudiostart = function(){ voiceLog('Audio detectado...'); };
+  recognition.onspeechstart = function(){ voiceLog('Hablando...'); };
   recognition.onerror = function(e){
-    if(e.error==='no-speech' || e.error==='aborted') return;
+    if(e.error==='no-speech'){
+      voiceLog('No escuche nada, habla mas fuerte');
+      return;
+    }
+    if(e.error==='aborted') return;
     if(e.error==='not-allowed'){
-      voiceLog('🚫 Permití el micrófono en el navegador');
+      voiceLog('Permiti el microfono en Ajustes');
       stopVoice();
       return;
     }
     if(e.error==='network'){
-      voiceLog('📶 Necesitás internet para la voz');
+      voiceLog('Sin internet - la voz necesita conexion');
       stopVoice();
       return;
     }
-    stopVoice();
+    voiceLog('Error: '+e.error);
   };
   recognition.onend = function(){
     if(voiceActive){
-      try{ recognition.start(); }catch(e){}
+      setTimeout(function(){ try{ recognition.start(); }catch(ex){} }, 300);
     }
   };
 }
