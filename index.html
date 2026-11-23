@@ -1310,9 +1310,18 @@ function initVoice(){
     }
   };
   recognition.onerror = function(e){
-    if(e.error==='no-speech') return;
-    voiceLog('⚠️ Error: '+e.error);
-    if(e.error!=='aborted') stopVoice();
+    if(e.error==='no-speech' || e.error==='aborted') return;
+    if(e.error==='not-allowed'){
+      voiceLog('🚫 Permití el micrófono en el navegador');
+      stopVoice();
+      return;
+    }
+    if(e.error==='network'){
+      voiceLog('📶 Necesitás internet para la voz');
+      stopVoice();
+      return;
+    }
+    stopVoice();
   };
   recognition.onend = function(){
     if(voiceActive){
