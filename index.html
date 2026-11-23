@@ -26,7 +26,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .h-btn:active{background:rgba(255,255,255,.25)}
 
 /* ── SCREENS ── */
-.screen{display:none;flex:1;padding:14px 16px;max-width:600px;margin:0 auto;width:100%}
+.screen{display:none;flex:1;padding:14px 16px 70px;max-width:600px;margin:0 auto;width:100%}
 .screen.active{display:block}
 @media(min-width:768px){.screen,.screen.active{max-width:none !important;width:95vw !important;padding:14px 32px}}
 
@@ -61,7 +61,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .piq-chip.active{border-color:var(--edenor);background:var(--edenor);color:#fff}
 .piq-add{padding:7px 12px;border:2px dashed var(--line);border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;background:transparent;color:var(--gray)}
 /* ── COMANDO RAPIDO ── */
-.voice-btn{width:56px;height:56px;border-radius:50%;border:3px solid var(--edenor);background:#fff;color:var(--edenor);font-size:24px;cursor:pointer;position:fixed;bottom:24px;right:24px;z-index:55;box-shadow:0 4px 16px rgba(0,0,0,.18);transition:all .2s;display:none;align-items:center;justify-content:center}
+.voice-btn{display:none}
 .piq-edit{display:flex;gap:6px;align-items:center}
 .piq-edit input{width:80px;padding:5px 8px;border:1px solid var(--edenor);border-radius:6px;font-size:12px;font-weight:700;text-align:center}
 .piq-edit button{padding:5px 10px;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer}
@@ -392,8 +392,9 @@ function showScreen(name){
   if(name === 'setup') renderSaved();
   // Mostrar botón voz solo en pantalla de trabajo
   const vb = document.getElementById('voiceBtn');
-  if(vb) vb.style.display = (name === 'work') ? 'flex' : 'none';
-  if(name !== 'work' && cmdBarVisible) toggleCmdBar();
+  if(vb) vb.style.display = 'none';
+  const cb = document.getElementById('cmdBar');
+  if(cb) cb.style.display = (name === 'work') ? 'flex' : 'none';
 }
 
 // ── MATERIALES FROM GOOGLE SHEET ──
@@ -1288,30 +1289,37 @@ function toast(msg, type='ok'){
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 // ── COMANDO RAPIDO ──
-let cmdBarVisible = false;
-
-function toggleCmdBar(){
-  const bar = document.getElementById('cmdBar');
-  cmdBarVisible = !cmdBarVisible;
-  bar.style.display = cmdBarVisible ? 'flex' : 'none';
-  if(cmdBarVisible){
-    const inp = document.getElementById('cmdInput');
-    inp.value = '';
-    inp.focus();
-  }
-}
+let cmdDebounce = null;
+let lastCmdLen = 0;
 
 function runCmd(){
   const inp = document.getElementById('cmdInput');
   const text = inp.value.trim();
   if(!text) return;
   inp.value = '';
+  lastCmdLen = 0;
   processVoice(text);
-  inp.focus();
+  // Vibrar si se puede
+  if(navigator.vibrate) navigator.vibrate(50);
 }
 
 function cmdKey(e){
-  if(e.key==='Enter'){ e.preventDefault(); runCmd(); }
+  if(e.key==='Enter'){ e.preventDefault(); clearTimeout(cmdDebounce); runCmd(); }
+}
+
+// Auto-enviar cuando el dictado termina (texto deja de cambiar)
+function cmdInput(){
+  clearTimeout(cmdDebounce);
+  const inp = document.getElementById('cmdInput');
+  const len = inp.value.trim().length;
+  if(len === 0){ lastCmdLen = 0; return; }
+  // Solo auto-enviar si el texto creció (viene de dictado)
+  if(len > lastCmdLen + 2){
+    cmdDebounce = setTimeout(function(){
+      if(inp.value.trim().length > 0) runCmd();
+    }, 1200);
+  }
+  lastCmdLen = len;
 }
 
 function voiceLog(msg){
@@ -1422,10 +1430,9 @@ function processVoice(text){
 function fmtN(n){ return Number(n).toLocaleString('es-AR'); }
 function today(){ return new Date().toISOString().slice(0,10); }
 </script>
-<button id="voiceBtn" class="voice-btn" onclick="toggleCmdBar()" title="Comando rápido">⚡</button>
-<div id="cmdBar" style="display:none;position:fixed;bottom:90px;left:12px;right:12px;max-width:420px;margin-left:auto;background:rgba(37,87,58,.97);padding:10px;border-radius:14px;z-index:55;box-shadow:0 4px 24px rgba(0,0,0,.3);gap:8px;align-items:center">
-  <input id="cmdInput" type="text" placeholder="piquete 1, sostén, 212 por 2..." onkeydown="cmdKey(event)" style="flex:1;padding:10px 12px;border-radius:10px;border:none;font-size:15px;background:#fff;color:#111" inputmode="text" autocomplete="off" x-webkit-speech>
-  <button onclick="runCmd()" style="padding:10px 16px;border-radius:10px;border:none;background:var(--accent);color:#111;font-weight:700;font-size:14px;cursor:pointer">OK</button>
+<div id="cmdBar" style="display:none;position:fixed;bottom:0;left:0;right:0;background:linear-gradient(135deg,#25573A,#1d4a30);padding:8px 12px;z-index:55;box-shadow:0 -2px 16px rgba(0,0,0,.3);gap:8px;align-items:center">
+  <input id="cmdInput" type="text" placeholder="🎤 Dicta o escribi: piquete 1, sosten, 212 por 2" oninput="cmdInput()" onkeydown="cmdKey(event)" style="flex:1;padding:12px 14px;border-radius:10px;border:2px solid var(--accent);font-size:16px;background:#fff;color:#111" inputmode="text" autocomplete="off">
+  <button onclick="runCmd()" style="padding:12px 18px;border-radius:10px;border:none;background:var(--accent);color:#111;font-weight:700;font-size:15px;cursor:pointer">OK</button>
 </div>
 </body>
 </html>
