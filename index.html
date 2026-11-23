@@ -60,6 +60,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .piq-chip{padding:7px 14px;border:2px solid var(--line);border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;background:#fff;color:var(--gray);transition:all .15s}
 .piq-chip.active{border-color:var(--edenor);background:var(--edenor);color:#fff}
 .piq-add{padding:7px 12px;border:2px dashed var(--line);border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;background:transparent;color:var(--gray)}
+/* ── VOZ ── */
+.voice-btn{width:56px;height:56px;border-radius:50%;border:3px solid var(--edenor);background:#fff;color:var(--edenor);font-size:24px;cursor:pointer;position:fixed;bottom:24px;right:24px;z-index:50;box-shadow:0 4px 16px rgba(0,0,0,.18);transition:all .2s;display:flex;align-items:center;justify-content:center}
+.voice-btn.listening{background:var(--danger);border-color:var(--danger);color:#fff;animation:pulse-mic 1s infinite}
+@keyframes pulse-mic{0%,100%{box-shadow:0 0 0 0 rgba(220,53,69,.5)}50%{box-shadow:0 0 0 14px rgba(220,53,69,0)}}
+.voice-log{position:fixed;bottom:90px;right:16px;left:16px;max-width:400px;margin-left:auto;background:rgba(37,87,58,.95);color:#fff;padding:10px 14px;border-radius:12px;font-size:13px;font-weight:600;z-index:50;display:none;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,.2)}
+.voice-log.show{display:block}
 .piq-edit{display:flex;gap:6px;align-items:center}
 .piq-edit input{width:80px;padding:5px 8px;border:1px solid var(--edenor);border-radius:6px;font-size:12px;font-weight:700;text-align:center}
 .piq-edit button{padding:5px 10px;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer}
@@ -388,6 +394,10 @@ function showScreen(name){
   if(el) el.classList.add('active');
   if(name === 'config') updateDataStatus();
   if(name === 'setup') renderSaved();
+  // Mostrar botón voz solo en pantalla de trabajo
+  const vb = document.getElementById('voiceBtn');
+  if(vb) vb.style.display = (name === 'work') ? 'flex' : 'none';
+  if(name !== 'work' && voiceActive) stopVoice();
 }
 
 // ── MATERIALES FROM GOOGLE SHEET ──
@@ -1280,8 +1290,162 @@ function toast(msg, type='ok'){
   setTimeout(() => t.classList.remove('show'), 3000);
 }
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ── VOZ ──
+let voiceActive = false;
+let recognition = null;
+
+function initVoice(){
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SpeechRecognition){ document.getElementById('voiceBtn').style.display='none'; return; }
+  recognition = new SpeechRecognition();
+  recognition.lang = 'es-AR';
+  recognition.continuous = true;
+  recognition.interimResults = false;
+  recognition.onresult = function(e){
+    for(let i = e.resultIndex; i < e.results.length; i++){
+      if(e.results[i].isFinal){
+        processVoice(e.results[i][0].transcript.trim());
+      }
+    }
+  };
+  recognition.onerror = function(e){
+    if(e.error==='no-speech') return;
+    voiceLog('⚠️ Error: '+e.error);
+    if(e.error!=='aborted') stopVoice();
+  };
+  recognition.onend = function(){
+    if(voiceActive){
+      try{ recognition.start(); }catch(e){}
+    }
+  };
+}
+
+function toggleVoice(){
+  if(!recognition) initVoice();
+  if(!recognition){ toast('Tu navegador no soporta voz','err'); return; }
+  if(voiceActive) stopVoice(); else startVoice();
+}
+
+function startVoice(){
+  voiceActive = true;
+  document.getElementById('voiceBtn').classList.add('listening');
+  document.getElementById('voiceLog').classList.add('show');
+  voiceLog('🎤 Escuchando... Decí un comando');
+  try{ recognition.start(); }catch(e){}
+}
+
+function stopVoice(){
+  voiceActive = false;
+  document.getElementById('voiceBtn').classList.remove('listening');
+  document.getElementById('voiceLog').classList.remove('show');
+  try{ recognition.stop(); }catch(e){}
+}
+
+function voiceLog(msg){
+  const el = document.getElementById('voiceLog');
+  el.textContent = msg;
+  el.classList.add('show');
+}
+
+function normalizeText(t){
+  return t.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim();
+}
+
+function processVoice(text){
+  const raw = text;
+  const t = normalizeText(text);
+  voiceLog('🗣️ "'+raw+'"');
+
+  // 1. "piquete X" → seleccionar o crear piquete
+  let m = t.match(/piquete\s+(\d+)/);
+  if(m){
+    const num = m[1];
+    if(!piquetes.includes(num)){
+      piquetes.push(num);
+    }
+    selectPiq(num);
+    renderGrilla();
+    voiceLog('📍 Piquete '+num);
+    toast('🎤 Piquete '+num);
+    return;
+  }
+
+  // 2. "siguiente" / "próximo" → avanzar al siguiente piquete
+  if(t.match(/^(siguiente|proximo|siguiente piquete|proximo piquete)$/)){
+    const idx = piquetes.indexOf(currentPiq);
+    if(idx < piquetes.length-1){
+      selectPiq(piquetes[idx+1]);
+      renderGrilla();
+      voiceLog('📍 Piquete '+currentPiq);
+      toast('🎤 Piquete '+currentPiq);
+    } else {
+      piqAdd();
+      voiceLog('📍 Nuevo → Piquete '+currentPiq);
+      toast('🎤 Nuevo piquete '+currentPiq);
+    }
+    return;
+  }
+
+  // 3. Nombre de kit → buscar y aplicar
+  const kits = loadKits();
+  const kitMatch = kits.findIndex(k => normalizeText(k.name) === t || t.includes(normalizeText(k.name)));
+  if(kitMatch >= 0){
+    applyKit(kitMatch);
+    voiceLog('⚡ Kit "'+kits[kitMatch].name+'" → Piq '+currentPiq);
+    return;
+  }
+
+  // 4. "matricula X cantidad Y" / "X por Y" / "X cantidad Y"
+  m = t.match(/(?:matricula\s+)?(\d+)\s+(?:por|cantidad|por)\s+(\d+(?:[.,]\d+)?)/);
+  if(m){
+    const mat = m[1];
+    const cant = parseFloat(m[2].replace(',','.'));
+    const material = matLookup(mat);
+    if(!material){
+      voiceLog('❌ Matrícula '+mat+' no encontrada');
+      toast('🎤 Mat. '+mat+' no encontrada','err');
+      return;
+    }
+    if(!grilla[mat]){
+      grilla[mat] = { desc: material.descripcion, flechado: material.flechado || 0, piquetes: {} };
+    }
+    grilla[mat].piquetes[currentPiq] = (grilla[mat].piquetes[currentPiq] || 0) + cant;
+    renderGrilla();
+    autoSave();
+    voiceLog('✅ '+mat+' ×'+cant+' → Piq '+currentPiq);
+    toast('🎤 '+mat+' ×'+cant+' → Piq '+currentPiq);
+    return;
+  }
+
+  // 5. Solo un número → intentar como matrícula (espera cantidad después)
+  m = t.match(/^(\d+)$/);
+  if(m){
+    const mat = m[1];
+    const material = matLookup(mat);
+    if(material){
+      document.getElementById('p-mat').value = mat;
+      document.getElementById('p-desc').value = material.descripcion;
+      voiceLog('🔍 Mat. '+mat+' — Decí la cantidad');
+      toast('🎤 Mat. '+mat+' encontrada — decí cantidad');
+      return;
+    }
+  }
+
+  // 6. "parar" / "listo" / "basta" → detener voz
+  if(t.match(/^(parar|listo|basta|detener|cortar|stop)$/)){
+    stopVoice();
+    toast('🎤 Voz detenida');
+    return;
+  }
+
+  voiceLog('❓ No entendí: "'+raw+'"');
+  setTimeout(() => { if(voiceActive) voiceLog('🎤 Escuchando...'); }, 2500);
+}
 function fmtN(n){ return Number(n).toLocaleString('es-AR'); }
 function today(){ return new Date().toISOString().slice(0,10); }
 </script>
+<button id="voiceBtn" class="voice-btn" onclick="toggleVoice()" title="Comando por voz" style="display:none">🎤</button>
+<div id="voiceLog" class="voice-log"></div>
 </body>
 </html>
