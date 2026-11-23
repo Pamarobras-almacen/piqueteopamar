@@ -1299,9 +1299,10 @@ function initVoice(){
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if(!SpeechRecognition){ document.getElementById('voiceBtn').style.display='none'; return; }
   recognition = new SpeechRecognition();
-  recognition.lang = 'es-AR';
+  recognition.lang = 'es';
   recognition.continuous = false;
   recognition.interimResults = true;
+  recognition.maxAlternatives = 3;
   recognition.onresult = function(e){
     for(let i = e.resultIndex; i < e.results.length; i++){
       if(e.results[i].isFinal){
@@ -1311,11 +1312,11 @@ function initVoice(){
       }
     }
   };
-  recognition.onaudiostart = function(){ voiceLog('Audio detectado...'); };
-  recognition.onspeechstart = function(){ voiceLog('Hablando...'); };
+  recognition.onaudiostart = function(){ voiceLog('Mic OK - habla ahora'); };
+  recognition.onspeechstart = function(){ voiceLog('Te escucho...'); };
   recognition.onerror = function(e){
     if(e.error==='no-speech'){
-      voiceLog('No escuche nada, habla mas fuerte');
+      voiceLog('No escuche nada - habla mas fuerte y cerca');
       return;
     }
     if(e.error==='aborted') return;
@@ -1333,7 +1334,7 @@ function initVoice(){
   };
   recognition.onend = function(){
     if(voiceActive){
-      setTimeout(function(){ try{ recognition.start(); }catch(ex){} }, 300);
+      setTimeout(function(){ try{ recognition.start(); }catch(ex){} }, 500);
     }
   };
 }
