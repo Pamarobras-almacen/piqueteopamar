@@ -26,7 +26,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .h-btn:active{background:rgba(255,255,255,.25)}
 
 /* ── SCREENS ── */
-.screen{display:none;flex:1;padding:14px 16px 70px;max-width:600px;margin:0 auto;width:100%}
+.screen{display:none;flex:1;padding:14px 16px 20px;max-width:600px;margin:0 auto;width:100%}
 .screen.active{display:block}
 @media(min-width:768px){.screen,.screen.active{max-width:none !important;width:95vw !important;padding:14px 32px}}
 
@@ -62,6 +62,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .piq-add{padding:7px 12px;border:2px dashed var(--line);border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;background:transparent;color:var(--gray)}
 /* ── COMANDO RAPIDO ── */
 .voice-btn{display:none}
+
 .piq-edit{display:flex;gap:6px;align-items:center}
 .piq-edit input{width:80px;padding:5px 8px;border:1px solid var(--edenor);border-radius:6px;font-size:12px;font-weight:700;text-align:center}
 .piq-edit button{padding:5px 10px;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer}
@@ -390,11 +391,6 @@ function showScreen(name){
   if(el) el.classList.add('active');
   if(name === 'config') updateDataStatus();
   if(name === 'setup') renderSaved();
-  // Mostrar botón voz solo en pantalla de trabajo
-  const vb = document.getElementById('voiceBtn');
-  if(vb) vb.style.display = 'none';
-  const cb = document.getElementById('cmdBar');
-  if(cb) cb.style.display = (name === 'work') ? 'flex' : 'none';
 }
 
 // ── MATERIALES FROM GOOGLE SHEET ──
@@ -1288,191 +1284,8 @@ function toast(msg, type='ok'){
 }
 function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
-// ── COMANDO RAPIDO ──
-let cmdDebounce = null;
-let lastCmdLen = 0;
-
-function runCmd(){
-  const inp = document.getElementById('cmdInput');
-  const text = inp.value.trim();
-  if(!text) return;
-  inp.value = '';
-  lastCmdLen = 0;
-  processVoice(text);
-  // Vibrar si se puede
-  if(navigator.vibrate) navigator.vibrate(50);
-}
-
-function cmdKey(e){
-  if(e.key==='Enter'){ e.preventDefault(); clearTimeout(cmdDebounce); runCmd(); }
-}
-
-// Auto-enviar cuando el dictado termina (texto deja de cambiar)
-function cmdInput(){
-  clearTimeout(cmdDebounce);
-  const inp = document.getElementById('cmdInput');
-  const len = inp.value.trim().length;
-  if(len === 0){ lastCmdLen = 0; return; }
-  // Solo auto-enviar si el texto creció (viene de dictado)
-  if(len > lastCmdLen + 2){
-    cmdDebounce = setTimeout(function(){
-      if(inp.value.trim().length > 0) runCmd();
-    }, 1200);
-  }
-  lastCmdLen = len;
-}
-
-function voiceLog(msg){
-  toast(msg);
-}
-
-function normalizeText(t){
-  return t.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim();
-}
-
-const WORD_NUMS = {cero:'0',uno:'1',un:'1',una:'1',dos:'2',tres:'3',cuatro:'4',cinco:'5',seis:'6',siete:'7',ocho:'8',nueve:'9',diez:'10',once:'11',doce:'12',trece:'13',catorce:'14',quince:'15',dieciseis:'16',diecisiete:'17',dieciocho:'18',diecinueve:'19',veinte:'20',veintiuno:'21',veintidos:'22',veintitres:'23',veinticuatro:'24',veinticinco:'25'};
-
-function wordsToNums(t){
-  // Convertir palabras a dígitos
-  t = t.replace(/\b(cero|uno|un|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince|dieciseis|diecisiete|dieciocho|diecinueve|veinte|veintiuno|veintidos|veintitres|veinticuatro|veinticinco)\b/g, function(w){ return WORD_NUMS[w]||w; });
-  // Quitar puntos de miles: "21.858" → "21858"
-  t = t.replace(/(\d)\.(\d{3})/g, '$1$2');
-  // Quitar comas de miles: "21,858" → "21858"
-  t = t.replace(/(\d),(\d{3})/g, '$1$2');
-  // Juntar dígitos sueltos: "2 1 8 5 8" → "21858"
-  t = t.replace(/(\d)\s+(?=\d)/g, '$1');
-  return t;
-}
-
-// Distancia de edición simplificada (Levenshtein)
-function editDist(a,b){
-  if(a.length===0) return b.length;
-  if(b.length===0) return a.length;
-  var matrix = [];
-  for(var i=0;i<=b.length;i++) matrix[i]=[i];
-  for(var j=0;j<=a.length;j++) matrix[0][j]=j;
-  for(i=1;i<=b.length;i++){
-    for(j=1;j<=a.length;j++){
-      if(b[i-1]===a[j-1]) matrix[i][j]=matrix[i-1][j-1];
-      else matrix[i][j]=Math.min(matrix[i-1][j-1]+1,matrix[i][j-1]+1,matrix[i-1][j]+1);
-    }
-  }
-  return matrix[b.length][a.length];
-}
-
-// Coincidencia aproximada: permite hasta 30% de error
-function fuzzyMatch(input, target){
-  if(input.length < 3 || target.length < 3) return false;
-  var dist = editDist(input, target);
-  var maxLen = Math.max(input.length, target.length);
-  return (dist / maxLen) <= 0.35;
-}
-
-function processVoice(text){
-  let t = normalizeText(text);
-  t = wordsToNums(t);
-  // Limpiar palabras basura del dictado
-  t = t.replace(/\b(y|e|despues|luego|tambien|después)\b/g,' ').replace(/\s+/g,' ').trim();
-
-  const acciones = [];
-  const kits = loadKits();
-
-  // Extraer todos los "piquete X"
-  let rest = t;
-  let m;
-  while((m = rest.match(/piquete\s+(\d+)/)) !== null){
-    acciones.push({tipo:'piq', num: m[1]});
-    rest = rest.substring(m.index + m[0].length);
-  }
-
-  // Extraer "siguiente/proximo"
-  if(t.match(/(siguiente|proximo)/)){
-    acciones.push({tipo:'next'});
-  }
-
-  // Extraer kits mencionados (con búsqueda aproximada)
-  // Separar palabras del texto para buscar coincidencias parciales
-  var palabras = t.split(/\s+/);
-  kits.forEach(function(k,i){
-    const kn = normalizeText(k.name);
-    // Match exacto
-    if(t.includes(kn)){ acciones.push({tipo:'kit', idx: i, name: k.name}); return; }
-    // Match aproximado: buscar en cada palabra si se parece al nombre del kit
-    for(var p=0; p<palabras.length; p++){
-      if(palabras[p].length >= 3 && fuzzyMatch(palabras[p], kn)){
-        acciones.push({tipo:'kit', idx: i, name: k.name});
-        return;
-      }
-      // También intentar combinando 2 palabras seguidas
-      if(p < palabras.length-1){
-        var dos = palabras[p]+palabras[p+1];
-        if(fuzzyMatch(dos, kn)){ acciones.push({tipo:'kit', idx: i, name: k.name}); return; }
-      }
-    }
-  });
-
-  // Extraer "X por Y"
-  const matRegex = /(\d{2,})\s*(?:por|cantidad|x)\s*(\d+(?:[.,]\d+)?)/g;
-  while((m = matRegex.exec(t)) !== null){
-    acciones.push({tipo:'mat', mat: m[1], cant: parseFloat(m[2].replace(',','.'))});
-  }
-
-  // Si no encontró nada, intentar solo número como matrícula
-  if(acciones.length === 0){
-    m = t.match(/(\d{2,})/);
-    if(m){
-      const material = matLookup(m[1]);
-      if(material){
-        document.getElementById('p-mat').value = m[1];
-        document.getElementById('p-desc').value = material.descripcion;
-        toast('Mat. '+m[1]+' encontrada — agrega cantidad');
-        return;
-      }
-    }
-    toast('No entendi: "'+text+'"','err');
-    return;
-  }
-
-  // Ejecutar acciones en orden
-  const msgs = [];
-  acciones.forEach(function(a){
-    if(a.tipo==='piq'){
-      if(!piquetes.includes(a.num)) piquetes.push(a.num);
-      selectPiq(a.num);
-      msgs.push('Piq '+a.num);
-    }
-    if(a.tipo==='next'){
-      const idx = piquetes.indexOf(currentPiq);
-      if(idx < piquetes.length-1){ selectPiq(piquetes[idx+1]); }
-      else { piqAdd(); }
-      msgs.push('Piq '+currentPiq);
-    }
-    if(a.tipo==='kit'){
-      applyKit(a.idx);
-      msgs.push('Kit '+a.name);
-    }
-    if(a.tipo==='mat'){
-      const material = matLookup(a.mat);
-      if(material){
-        if(!grilla[a.mat]) grilla[a.mat] = { desc: material.descripcion, flechado: material.flechado||0, piquetes: {} };
-        grilla[a.mat].piquetes[currentPiq] = (grilla[a.mat].piquetes[currentPiq]||0) + a.cant;
-        msgs.push(a.mat+' x'+a.cant);
-      } else {
-        msgs.push(a.mat+' no encontrada');
-      }
-    }
-  });
-  renderGrilla();
-  autoSave();
-  toast('✅ '+msgs.join(' → '));
-  if(navigator.vibrate) navigator.vibrate(50);
-}
 function fmtN(n){ return Number(n).toLocaleString('es-AR'); }
 function today(){ return new Date().toISOString().slice(0,10); }
 </script>
-<div id="cmdBar" style="display:none;position:fixed;bottom:0;left:0;right:0;background:linear-gradient(135deg,#25573A,#1d4a30);padding:8px 12px;z-index:55;box-shadow:0 -2px 16px rgba(0,0,0,.3);gap:8px;align-items:center">
-  <input id="cmdInput" type="text" placeholder="🎤 Dicta o escribi: piquete 1, sosten, 212 por 2" oninput="cmdInput()" onkeydown="cmdKey(event)" style="flex:1;padding:12px 14px;border-radius:10px;border:2px solid var(--accent);font-size:16px;background:#fff;color:#111" inputmode="text" autocomplete="off">
-  <button onclick="runCmd()" style="padding:12px 18px;border-radius:10px;border:none;background:var(--accent);color:#111;font-weight:700;font-size:15px;cursor:pointer">OK</button>
-</div>
 </body>
 </html>
