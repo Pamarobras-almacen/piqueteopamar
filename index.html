@@ -1333,7 +1333,15 @@ function normalizeText(t){
 const WORD_NUMS = {cero:'0',uno:'1',un:'1',una:'1',dos:'2',tres:'3',cuatro:'4',cinco:'5',seis:'6',siete:'7',ocho:'8',nueve:'9',diez:'10',once:'11',doce:'12',trece:'13',catorce:'14',quince:'15',dieciseis:'16',diecisiete:'17',dieciocho:'18',diecinueve:'19',veinte:'20',veintiuno:'21',veintidos:'22',veintitres:'23',veinticuatro:'24',veinticinco:'25'};
 
 function wordsToNums(t){
-  return t.replace(/\b(cero|uno|un|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince|dieciseis|diecisiete|dieciocho|diecinueve|veinte|veintiuno|veintidos|veintitres|veinticuatro|veinticinco)\b/g, function(w){ return WORD_NUMS[w]||w; });
+  // Convertir palabras a dígitos
+  t = t.replace(/\b(cero|uno|un|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince|dieciseis|diecisiete|dieciocho|diecinueve|veinte|veintiuno|veintidos|veintitres|veinticuatro|veinticinco)\b/g, function(w){ return WORD_NUMS[w]||w; });
+  // Quitar puntos de miles: "21.858" → "21858"
+  t = t.replace(/(\d)\.(\d{3})/g, '$1$2');
+  // Quitar comas de miles: "21,858" → "21858"
+  t = t.replace(/(\d),(\d{3})/g, '$1$2');
+  // Juntar dígitos sueltos: "2 1 8 5 8" → "21858"
+  t = t.replace(/(\d)\s+(?=\d)/g, '$1');
+  return t;
 }
 
 // Distancia de edición simplificada (Levenshtein)
