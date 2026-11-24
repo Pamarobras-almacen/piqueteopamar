@@ -1337,95 +1337,90 @@ function wordsToNums(t){
 }
 
 function processVoice(text){
-  const raw = text;
   let t = normalizeText(text);
   t = wordsToNums(t);
-  voiceLog('🗣️ "'+raw+'"');
+  // Limpiar palabras basura del dictado
+  t = t.replace(/\b(y|e|despues|luego|tambien|después)\b/g,' ').replace(/\s+/g,' ').trim();
 
-  // 1. "piquete X" → seleccionar o crear piquete
-  let m = t.match(/piquete\s+(\d+)/);
-  if(m){
-    const num = m[1];
-    if(!piquetes.includes(num)){
-      piquetes.push(num);
-    }
-    selectPiq(num);
-    renderGrilla();
-    voiceLog('📍 Piquete '+num);
-    toast('🎤 Piquete '+num);
-    return;
-  }
-
-  // 2. "siguiente" / "próximo" → avanzar al siguiente piquete
-  if(t.match(/(siguiente|proximo)/)){
-    const idx = piquetes.indexOf(currentPiq);
-    if(idx < piquetes.length-1){
-      selectPiq(piquetes[idx+1]);
-      renderGrilla();
-      voiceLog('📍 Piquete '+currentPiq);
-      toast('🎤 Piquete '+currentPiq);
-    } else {
-      piqAdd();
-      voiceLog('📍 Nuevo → Piquete '+currentPiq);
-      toast('🎤 Nuevo piquete '+currentPiq);
-    }
-    return;
-  }
-
-  // 3. Nombre de kit → buscar y aplicar
+  const acciones = [];
   const kits = loadKits();
-  const kitMatch = kits.findIndex(k => normalizeText(k.name) === t || t.includes(normalizeText(k.name)));
-  if(kitMatch >= 0){
-    applyKit(kitMatch);
-    voiceLog('⚡ Kit "'+kits[kitMatch].name+'" → Piq '+currentPiq);
+
+  // Extraer todos los "piquete X"
+  let rest = t;
+  let m;
+  while((m = rest.match(/piquete\s+(\d+)/)) !== null){
+    acciones.push({tipo:'piq', num: m[1]});
+    rest = rest.substring(m.index + m[0].length);
+  }
+
+  // Extraer "siguiente/proximo"
+  if(t.match(/(siguiente|proximo)/)){
+    acciones.push({tipo:'next'});
+  }
+
+  // Extraer kits mencionados
+  kits.forEach(function(k,i){
+    const kn = normalizeText(k.name);
+    if(t.includes(kn)){
+      acciones.push({tipo:'kit', idx: i, name: k.name});
+    }
+  });
+
+  // Extraer "X por Y"
+  const matRegex = /(\d{2,})\s*(?:por|cantidad|x)\s*(\d+(?:[.,]\d+)?)/g;
+  while((m = matRegex.exec(t)) !== null){
+    acciones.push({tipo:'mat', mat: m[1], cant: parseFloat(m[2].replace(',','.'))});
+  }
+
+  // Si no encontró nada, intentar solo número como matrícula
+  if(acciones.length === 0){
+    m = t.match(/(\d{2,})/);
+    if(m){
+      const material = matLookup(m[1]);
+      if(material){
+        document.getElementById('p-mat').value = m[1];
+        document.getElementById('p-desc').value = material.descripcion;
+        toast('Mat. '+m[1]+' encontrada — agrega cantidad');
+        return;
+      }
+    }
+    toast('No entendi: "'+text+'"','err');
     return;
   }
 
-  // 4. "matricula X cantidad Y" / "X por Y" / "X cantidad Y"
-  m = t.match(/(?:matricula\s+)?(\d+)\s+(?:por|cantidad|por)\s+(\d+(?:[.,]\d+)?)/);
-  if(m){
-    const mat = m[1];
-    const cant = parseFloat(m[2].replace(',','.'));
-    const material = matLookup(mat);
-    if(!material){
-      voiceLog('❌ Matrícula '+mat+' no encontrada');
-      toast('🎤 Mat. '+mat+' no encontrada','err');
-      return;
+  // Ejecutar acciones en orden
+  const msgs = [];
+  acciones.forEach(function(a){
+    if(a.tipo==='piq'){
+      if(!piquetes.includes(a.num)) piquetes.push(a.num);
+      selectPiq(a.num);
+      msgs.push('Piq '+a.num);
     }
-    if(!grilla[mat]){
-      grilla[mat] = { desc: material.descripcion, flechado: material.flechado || 0, piquetes: {} };
+    if(a.tipo==='next'){
+      const idx = piquetes.indexOf(currentPiq);
+      if(idx < piquetes.length-1){ selectPiq(piquetes[idx+1]); }
+      else { piqAdd(); }
+      msgs.push('Piq '+currentPiq);
     }
-    grilla[mat].piquetes[currentPiq] = (grilla[mat].piquetes[currentPiq] || 0) + cant;
-    renderGrilla();
-    autoSave();
-    voiceLog('✅ '+mat+' ×'+cant+' → Piq '+currentPiq);
-    toast('🎤 '+mat+' ×'+cant+' → Piq '+currentPiq);
-    return;
-  }
-
-  // 5. Solo un número → intentar como matrícula (espera cantidad después)
-  m = t.match(/^(\d+)$/);
-  if(m){
-    const mat = m[1];
-    const material = matLookup(mat);
-    if(material){
-      document.getElementById('p-mat').value = mat;
-      document.getElementById('p-desc').value = material.descripcion;
-      voiceLog('🔍 Mat. '+mat+' — Decí la cantidad');
-      toast('🎤 Mat. '+mat+' encontrada — decí cantidad');
-      return;
+    if(a.tipo==='kit'){
+      applyKit(a.idx);
+      msgs.push('Kit '+a.name);
     }
-  }
-
-  // 6. "parar" / "listo" / "basta" → detener voz
-  if(t.match(/(parar|listo|basta|detener|cortar|stop)/)){
-    stopVoice();
-    toast('🎤 Voz detenida');
-    return;
-  }
-
-  voiceLog('❓ No entendí: "'+raw+'"');
-  setTimeout(() => { if(voiceActive) voiceLog('🎤 Escuchando...'); }, 2500);
+    if(a.tipo==='mat'){
+      const material = matLookup(a.mat);
+      if(material){
+        if(!grilla[a.mat]) grilla[a.mat] = { desc: material.descripcion, flechado: material.flechado||0, piquetes: {} };
+        grilla[a.mat].piquetes[currentPiq] = (grilla[a.mat].piquetes[currentPiq]||0) + a.cant;
+        msgs.push(a.mat+' x'+a.cant);
+      } else {
+        msgs.push(a.mat+' no encontrada');
+      }
+    }
+  });
+  renderGrilla();
+  autoSave();
+  toast('✅ '+msgs.join(' → '));
+  if(navigator.vibrate) navigator.vibrate(50);
 }
 function fmtN(n){ return Number(n).toLocaleString('es-AR'); }
 function today(){ return new Date().toISOString().slice(0,10); }
