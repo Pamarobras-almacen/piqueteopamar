@@ -1336,6 +1336,30 @@ function wordsToNums(t){
   return t.replace(/\b(cero|uno|un|una|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|trece|catorce|quince|dieciseis|diecisiete|dieciocho|diecinueve|veinte|veintiuno|veintidos|veintitres|veinticuatro|veinticinco)\b/g, function(w){ return WORD_NUMS[w]||w; });
 }
 
+// Distancia de edición simplificada (Levenshtein)
+function editDist(a,b){
+  if(a.length===0) return b.length;
+  if(b.length===0) return a.length;
+  var matrix = [];
+  for(var i=0;i<=b.length;i++) matrix[i]=[i];
+  for(var j=0;j<=a.length;j++) matrix[0][j]=j;
+  for(i=1;i<=b.length;i++){
+    for(j=1;j<=a.length;j++){
+      if(b[i-1]===a[j-1]) matrix[i][j]=matrix[i-1][j-1];
+      else matrix[i][j]=Math.min(matrix[i-1][j-1]+1,matrix[i][j-1]+1,matrix[i-1][j]+1);
+    }
+  }
+  return matrix[b.length][a.length];
+}
+
+// Coincidencia aproximada: permite hasta 30% de error
+function fuzzyMatch(input, target){
+  if(input.length < 3 || target.length < 3) return false;
+  var dist = editDist(input, target);
+  var maxLen = Math.max(input.length, target.length);
+  return (dist / maxLen) <= 0.35;
+}
+
 function processVoice(text){
   let t = normalizeText(text);
   t = wordsToNums(t);
@@ -1358,11 +1382,24 @@ function processVoice(text){
     acciones.push({tipo:'next'});
   }
 
-  // Extraer kits mencionados
+  // Extraer kits mencionados (con búsqueda aproximada)
+  // Separar palabras del texto para buscar coincidencias parciales
+  var palabras = t.split(/\s+/);
   kits.forEach(function(k,i){
     const kn = normalizeText(k.name);
-    if(t.includes(kn)){
-      acciones.push({tipo:'kit', idx: i, name: k.name});
+    // Match exacto
+    if(t.includes(kn)){ acciones.push({tipo:'kit', idx: i, name: k.name}); return; }
+    // Match aproximado: buscar en cada palabra si se parece al nombre del kit
+    for(var p=0; p<palabras.length; p++){
+      if(palabras[p].length >= 3 && fuzzyMatch(palabras[p], kn)){
+        acciones.push({tipo:'kit', idx: i, name: k.name});
+        return;
+      }
+      // También intentar combinando 2 palabras seguidas
+      if(p < palabras.length-1){
+        var dos = palabras[p]+palabras[p+1];
+        if(fuzzyMatch(dos, kn)){ acciones.push({tipo:'kit', idx: i, name: k.name}); return; }
+      }
     }
   });
 
