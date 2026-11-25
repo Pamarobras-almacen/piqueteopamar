@@ -164,6 +164,46 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .modal-bg.open{display:flex}
 .modal{background:#fff;border-radius:14px;padding:20px;width:100%;max-width:400px;max-height:80vh;overflow-y:auto}
 .modal h3{font-size:16px;color:var(--steel);margin-bottom:12px}
+
+/* ── DARK MODE ── */
+body.dark{
+  --ink:#e0e6eb;--steel:#8bc6a0;--edenor:#2e9e5e;--edenor-lt:#1a2e22;
+  --accent:#e0b83a;--line:#2e3a42;--panel:#111a14;--white:#1a2420;--gray:#8a96a0;
+  --danger:#e8554a;--danger-lt:#2e1a18;
+}
+body.dark .header{background:linear-gradient(135deg,#152e1e,#0e1f14)}
+body.dark .card{background:#1a2420;box-shadow:0 2px 8px rgba(0,0,0,.3)}
+body.dark .pf input,body.dark .pf select,body.dark .pf textarea{background:#1e2c24;color:var(--ink);border-color:var(--line)}
+body.dark .mat-grid input{background:#1e2c24;color:var(--ink)}
+body.dark .mat-grid input[readonly]{background:#15201a;color:var(--gray)}
+body.dark .grilla-wrap{background:#1a2420}
+body.dark .grilla td{border-bottom-color:#2a3630}
+body.dark .grilla td:first-child,body.dark .grilla td:nth-child(2){background:#1a2420}
+body.dark .grilla tr:nth-child(even) td:first-child,body.dark .grilla tr:nth-child(even) td:nth-child(2){background:#1e2c24}
+body.dark .grilla td.has-val{background:#1a3a25;color:#6fcc8a}
+body.dark .grilla tr:hover td{background:rgba(46,158,94,.12)}
+body.dark .grilla tr:hover td:first-child,body.dark .grilla tr:hover td:nth-child(2){background:#1e3a28}
+body.dark .grilla td.col-highlight{background:rgba(46,158,94,.12)!important}
+body.dark .piq-chip{background:#1a2420;color:var(--gray);border-color:var(--line)}
+body.dark .piq-chip.active{background:var(--edenor);color:#fff;border-color:var(--edenor)}
+body.dark .ss-list{background:#1a2420;border-color:var(--edenor)}
+body.dark .ss-item{border-bottom-color:#2a3630;color:var(--ink)}
+body.dark .ss-item:active{background:var(--edenor-lt)}
+body.dark .modal-overlay{background:rgba(0,0,0,.7)}
+body.dark .modal-box{background:#1a2420}
+body.dark .modal-bg{background:rgba(0,0,0,.7)}
+body.dark .modal{background:#1a2420}
+body.dark .kit-btn{background:var(--edenor-lt);border-color:var(--edenor)}
+body.dark .kit-item-row{background:#15201a}
+body.dark .editable-cell input{background:#1e2c24;color:var(--ink);border-color:var(--edenor)}
+body.dark .editable-cell:active{background:#2a3a20!important}
+body.dark .saved-item{border-bottom-color:#2a3630}
+body.dark .saved-item:active{background:#1e2c24}
+body.dark .sync-bar.ok{background:#1a3a25;color:#6fcc8a}
+body.dark .sync-bar.warn{background:#2e2a18;color:#e0a030}
+body.dark .h-btn{background:rgba(255,255,255,.1)}
+body.dark .h-btn:active{background:rgba(255,255,255,.2)}
+body.dark .dark-toggle{font-size:16px;padding:5px 8px}
 </style>
 </head>
 <body>
@@ -175,6 +215,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
     <div class="app-s" id="headerSub">PAMAR · Relevamiento de obra</div>
   </div>
   <div class="h-right">
+    <button class="h-btn dark-toggle" onclick="toggleDark()" id="darkBtn" title="Modo oscuro">🌙</button>
     <button class="h-btn" onclick="showScreen('config')" title="Configuración">⚙️</button>
     <button class="h-btn" onclick="showScreen('setup')">📋 Obras</button>
   </div>
@@ -368,8 +409,25 @@ let grilla = {}; // { matricula: { desc, flechado, piquetes: { '1': cant } } }
 let obraInfo = {};
 let editingPiq = null;
 
+// ── DARK MODE ──
+function toggleDark(){
+  document.body.classList.toggle('dark');
+  const isDark = document.body.classList.contains('dark');
+  localStorage.setItem('piq_dark', isDark ? '1' : '0');
+  document.getElementById('darkBtn').textContent = isDark ? '☀️' : '🌙';
+  document.querySelector('meta[name="theme-color"]').content = isDark ? '#152e1e' : '#25573A';
+}
+function loadDarkPref(){
+  if(localStorage.getItem('piq_dark') === '1'){
+    document.body.classList.add('dark');
+    document.getElementById('darkBtn').textContent = '☀️';
+    document.querySelector('meta[name="theme-color"]').content = '#152e1e';
+  }
+}
+
 // ── INIT ──
 document.addEventListener('DOMContentLoaded', () => {
+  loadDarkPref();
   loadMateriales();
   loadLastCuadrilla();
   renderSaved();
