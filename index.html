@@ -350,6 +350,7 @@ body.dark .dark-toggle{font-size:16px;padding:5px 8px}
         <select id="kit-cat" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:8px;font-size:14px;background:#f7f9fb">
           <option value="BT">BT (Baja Tensión)</option>
           <option value="MT">MT (Media Tensión)</option>
+          <option value="CT">CT (Cable de Tierra)</option>
         </select>
       </div>
       <div class="pf"><label>Nombre del kit</label><input id="kit-name" placeholder="Ej: Sostén, Retención..."></div>
@@ -839,7 +840,8 @@ function renderGrilla(){
 // ── KITS ──
 const DEFAULT_KITS = [
   { name: 'Sostén', tipo: 'AEREO', cat: 'BT', items: [{mat:'3115',cant:1},{mat:'212',cant:2},{mat:'283',cant:2},{mat:'3635',cant:1},{mat:'3643',cant:1}] },
-  { name: 'Retención', tipo: 'AEREO', cat: 'BT', items: [{mat:'212',cant:2},{mat:'283',cant:2},{mat:'3115',cant:1},{mat:'3232',cant:1},{mat:'3638',cant:1}] }
+  { name: 'Retención', tipo: 'AEREO', cat: 'BT', items: [{mat:'212',cant:2},{mat:'283',cant:2},{mat:'3115',cant:1},{mat:'3232',cant:1},{mat:'3638',cant:1}] },
+  { name: 'CT de 500 KVA', tipo: 'AEREO', cat: 'CT', items: [{mat:'212',cant:4},{mat:'283',cant:4},{mat:'577',cant:4},{mat:'579',cant:15},{mat:'597',cant:4},{mat:'598',cant:15},{mat:'1640',cant:2},{mat:'1891',cant:12},{mat:'1956',cant:3},{mat:'1993',cant:3},{mat:'2045',cant:12},{mat:'2459',cant:25},{mat:'3276',cant:1},{mat:'3307',cant:3},{mat:'3411',cant:4},{mat:'3458',cant:5},{mat:'3556',cant:12},{mat:'10465',cant:8},{mat:'10467',cant:36},{mat:'10513',cant:3},{mat:'16058',cant:1},{mat:'17621',cant:8},{mat:'18539',cant:1},{mat:'18540',cant:1},{mat:'19183',cant:2},{mat:'19191',cant:1},{mat:'20387',cant:3},{mat:'21010',cant:1},{mat:'23749',cant:36},{mat:'24423',cant:3},{mat:'24426',cant:2},{mat:'24662',cant:1},{mat:'25464',cant:15},{mat:'25469',cant:30},{mat:'25941',cant:15},{mat:'26139',cant:3},{mat:'27599',cant:3},{mat:'29403',cant:3}] }
 ];
 
 let currentKitType = 'AEREO';
@@ -865,7 +867,7 @@ function getKitTypes(){
 }
 
 function getKitCats(){
-  return ['BT','MT'];
+  return ['BT','MT','CT'];
 }
 
 function renderKits(){
