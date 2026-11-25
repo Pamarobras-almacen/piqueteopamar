@@ -267,12 +267,8 @@ body.dark .dark-toggle{font-size:16px;padding:5px 8px}
     <input type="text" id="p-direccion" placeholder="Dirección de la obra…">
   </div>
   <div class="pf">
-    <label>Supervisor PAMAR</label>
+    <label>Supervisor</label>
     <input type="text" id="p-supervisor" placeholder="Nombre del supervisor…">
-  </div>
-  <div class="pf">
-    <label>Supervisor Edenor</label>
-    <input type="text" id="p-sup-edenor" placeholder="Nombre del supervisor Edenor…">
   </div>
   <div class="pf">
     <label>GRAFO / Pedido</label>
@@ -632,7 +628,6 @@ function startPiqueteo(){
     obra, cuadrilla: cuad,
     direccion: document.getElementById('p-direccion').value.trim(),
     supervisor: document.getElementById('p-supervisor').value.trim(),
-    supEdenor: document.getElementById('p-sup-edenor').value.trim(),
     grafo: document.getElementById('p-grafo').value.trim(),
     pep: document.getElementById('p-pep').value.trim(),
     iniciativa: document.getElementById('p-iniciativa').value.trim()
@@ -1310,8 +1305,7 @@ function buildCSV(){
   lines.push(['','INICIATIVA:',esc2(obraInfo.iniciativa||'')].join(sep));
   lines.push(['','PEP:',esc2(obraInfo.pep||'')].join(sep));
   lines.push(['','OBRA:',esc2(obraInfo.obra||'')].join(sep));
-  lines.push(['','SUPERVISOR EDENOR:',esc2(obraInfo.supEdenor||'')].join(sep));
-  lines.push(['','SUPERVISOR PAMAR:',esc2(obraInfo.supervisor||'')].join(sep));
+  lines.push(['','SUPERVISOR:',esc2(obraInfo.supervisor||'')].join(sep));
   lines.push(['','Dirección:',esc2(obraInfo.direccion||'')].join(sep));
   lines.push('');
 
