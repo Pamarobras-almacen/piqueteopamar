@@ -340,8 +340,8 @@ body.dark .dark-toggle{font-size:16px;padding:5px 8px}
 
     <!-- Fotos del piquete -->
     <div class="photo-section">
-      <input type="file" id="photoInput" accept="image/*" capture="environment" multiple style="display:none" onchange="handlePhotos(event)">
-      <button class="photo-btn" onclick="document.getElementById('photoInput').click()">📷 Agregar foto al Piquete <span id="photo-piq-label"></span></button>
+      <input type="file" id="photoInput" accept="image/*" capture="environment" style="display:none" onchange="handlePhotos(event)">
+      <button class="photo-btn" onclick="takePhoto()">📷 Agregar foto al Piquete <span id="photo-piq-label"></span></button>
       <div id="photoPreviewList" class="photo-preview-list"></div>
       <div id="photoCount" class="photo-count"></div>
     </div>
@@ -408,9 +408,8 @@ body.dark .dark-toggle{font-size:16px;padding:5px 8px}
   <!-- Actions -->
   <div class="actions">
     <button class="btn-sm" style="background:var(--accent);color:#fff" onclick="saveLocal()">💾 Guardar</button>
-    <button class="btn-sm" style="background:var(--edenor);color:#fff" onclick="exportCSV()">📥 Excel</button>
-    <button class="btn-sm" style="background:#25D366;color:#fff" onclick="shareWhatsApp()">📲 WhatsApp</button>
-    <button class="btn-sm" style="background:#c53727;color:#fff" onclick="generatePhotoPDF()">📄 PDF</button>
+    <button class="btn-sm" style="background:var(--edenor);color:#fff" onclick="exportAll()">📥 Descargar</button>
+    <button class="btn-sm" style="background:#25D366;color:#fff" onclick="shareAll()">📲 WhatsApp</button>
     <button class="btn-sm" style="background:var(--danger-lt);color:var(--danger)" onclick="clearAll()">🗑️</button>
   </div>
 </div>
@@ -1310,62 +1309,133 @@ function getXlsxFileName(){
   return 'piqueteo_' + (obraInfo.obra||'obra').replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ]/g,'_').slice(0,20) + '_' + today() + '.xlsx';
 }
 
-async function exportCSV(){
-  const mats = Object.keys(grilla);
-  if(!mats.length){ toast('No hay datos','err'); return; }
+// ── LOAD LIBS HELPER ──
+async function ensureXLSX(){
   if(typeof XLSX === 'undefined'){
-    toast('Cargando librería Excel...');
-    try { await loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'); }
-    catch(e){ toast('Error al cargar librería Excel','err'); return; }
+    toast('Cargando Excel...');
+    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
   }
-  const blob = generateXlsxBlob();
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = getXlsxFileName();
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  toast('📥 Excel exportado');
+}
+async function ensureJsPDF(){
+  if(typeof window.jspdf === 'undefined'){
+    toast('Cargando PDF...');
+    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+  }
 }
 
-// ── SHARE WHATSAPP (XLSX file) ──
-async function shareWhatsApp(){
+function downloadBlob(blob, name){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function getPdfFileName(){
+  return 'piqueteo_fotos_' + (obraInfo.obra||'obra').replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ]/g,'_').slice(0,20) + '_' + today() + '.pdf';
+}
+
+function generatePhotoPDFBlob(){
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+  const pageW=210, pageH=297, margin=15, contentW=pageW-margin*2;
+  const obraName = document.getElementById('obraName')?.value||'';
+  const relevNum = document.getElementById('relevNum')?.value||'';
+  let first = true;
+  const sortedPiqs = Object.keys(piqPhotos).sort((a,b)=>{const na=parseInt(a),nb=parseInt(b);if(!isNaN(na)&&!isNaN(nb))return na-nb;return a.localeCompare(b);});
+  sortedPiqs.forEach(piq=>{
+    const photos=piqPhotos[piq]; if(!photos||!photos.length)return;
+    photos.forEach((photo,idx)=>{
+      if(!first)doc.addPage(); first=false;
+      doc.setFillColor(0,120,60); doc.rect(0,0,pageW,22,'F');
+      doc.setTextColor(255,255,255); doc.setFontSize(14); doc.setFont('helvetica','bold');
+      doc.text('PAMAR - Piqueteo de Materiales',margin,14);
+      doc.setTextColor(60,60,60); doc.setFontSize(10); doc.setFont('helvetica','normal');
+      let infoY=30;
+      if(obraName){doc.text('Obra: '+obraName,margin,infoY);infoY+=6;}
+      if(relevNum){doc.text('Relevamiento: '+relevNum,margin,infoY);infoY+=6;}
+      doc.text('Fecha: '+today(),margin,infoY); infoY+=6;
+      doc.setFontSize(13); doc.setFont('helvetica','bold'); doc.setTextColor(0,100,50); infoY+=4;
+      const title='Piquete '+piq+(photos.length>1?' — Foto '+(idx+1)+'/'+photos.length:'');
+      doc.text(title,margin,infoY); infoY+=6;
+      if(photo.caption){
+        doc.setFontSize(11); doc.setFont('helvetica','normal'); doc.setTextColor(30,30,30);
+        const lines=doc.splitTextToSize(photo.caption,contentW);
+        doc.text(lines,margin,infoY); infoY+=lines.length*5+4;
+      }
+      infoY+=2; const maxImgH=pageH-infoY-margin-10;
+      try{
+        const imgProps=doc.getImageProperties(photo.data);
+        let imgW=contentW, imgH=(imgProps.height/imgProps.width)*imgW;
+        if(imgH>maxImgH){imgH=maxImgH;imgW=(imgProps.width/imgProps.height)*imgH;}
+        doc.addImage(photo.data,'JPEG',margin+(contentW-imgW)/2,infoY,imgW,imgH);
+      }catch(e){doc.text('[Error al cargar imagen]',margin,infoY+10);}
+      doc.setFontSize(8); doc.setTextColor(150,150,150);
+      doc.text('Generado con Piqueteo PAMAR',margin,pageH-8);
+      doc.text('Pág. '+doc.getNumberOfPages(),pageW-margin-15,pageH-8);
+    });
+  });
+  return doc.output('blob');
+}
+
+// ── EXPORT ALL (Excel + PDF fotos) ──
+async function exportAll(){
   const mats = Object.keys(grilla);
   if(!mats.length){ toast('No hay datos','err'); return; }
-  if(typeof XLSX === 'undefined'){
-    toast('Cargando librería Excel...');
-    try { await loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'); }
-    catch(e){ toast('Error al cargar librería Excel','err'); return; }
+  try{ await ensureXLSX(); }catch(e){ toast('Error cargando Excel','err'); return; }
+  const xlsxBlob = generateXlsxBlob();
+  downloadBlob(xlsxBlob, getXlsxFileName());
+  const hasPhotos = getTotalPhotoCount() > 0;
+  if(hasPhotos){
+    try{ await ensureJsPDF(); }catch(e){ toast('Error cargando PDF','err'); return; }
+    const pdfBlob = generatePhotoPDFBlob();
+    downloadBlob(pdfBlob, getPdfFileName());
+    toast('📥 Excel + PDF de fotos descargados');
+  } else {
+    toast('📥 Excel descargado (sin fotos)');
+  }
+}
+
+// ── SHARE WHATSAPP (Excel + PDF fotos) ──
+async function shareAll(){
+  const mats = Object.keys(grilla);
+  if(!mats.length){ toast('No hay datos','err'); return; }
+  try{ await ensureXLSX(); }catch(e){ toast('Error cargando Excel','err'); return; }
+
+  const xlsxBlob = generateXlsxBlob();
+  const xlsxName = getXlsxFileName();
+  const xlsxFile = new File([xlsxBlob], xlsxName, {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+
+  const files = [xlsxFile];
+  const hasPhotos = getTotalPhotoCount() > 0;
+
+  if(hasPhotos){
+    try{ await ensureJsPDF(); }catch(e){ /* PDF optional */ }
+    if(typeof window.jspdf !== 'undefined'){
+      const pdfBlob = generatePhotoPDFBlob();
+      const pdfFile = new File([pdfBlob], getPdfFileName(), {type:'application/pdf'});
+      files.push(pdfFile);
+    }
   }
 
-  const blob = generateXlsxBlob();
-  const fileName = getXlsxFileName();
-  const xlsxFile = new File([blob], fileName, {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
-
-  if(navigator.canShare && navigator.canShare({files:[xlsxFile]})){
+  if(navigator.canShare && navigator.canShare({files})){
     navigator.share({
       title: 'Piqueteo - ' + (obraInfo.obra||''),
       text: '📐 Piqueteo: ' + (obraInfo.obra||'') + ' - ' + (obraInfo.cuadrilla||'') + ' (' + new Date().toLocaleDateString('es-AR') + ')',
-      files: [xlsxFile]
-    }).catch(err => {
-      fallbackShare(blob, fileName);
-    });
+      files: files
+    }).catch(function(){ fallbackShareAll(xlsxBlob, xlsxName); });
   } else {
-    fallbackShare(blob, fileName);
+    fallbackShareAll(xlsxBlob, xlsxName);
   }
 }
 
-function fallbackShare(blob, fileName){
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = fileName;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+function fallbackShareAll(xlsxBlob, xlsxName){
+  downloadBlob(xlsxBlob, xlsxName);
+  const hasPhotos = getTotalPhotoCount() > 0;
+  if(hasPhotos && typeof window.jspdf !== 'undefined'){
+    downloadBlob(generatePhotoPDFBlob(), getPdfFileName());
+  }
 
   const mats = Object.keys(grilla);
   let grand = 0;
@@ -1376,12 +1446,12 @@ function fallbackShare(blob, fileName){
   text += '👷 Cuadrilla: ' + (obraInfo.cuadrilla||'-') + '\n';
   if(obraInfo.grafo) text += '📋 GRAFO: ' + obraInfo.grafo + '\n';
   text += '📅 ' + new Date().toLocaleDateString('es-AR') + '\n';
-  text += '📊 ' + mats.length + ' matrículas · ' + piquetes.length + ' piquetes · ' + grand + ' unidades\n';
-  text += '\n📎 _Archivo Excel adjunto_';
+  text += '📊 ' + mats.length + ' mat · ' + piquetes.length + ' piq · ' + grand + ' uds\n';
+  text += hasPhotos ? '\n📎 _Excel + PDF fotos adjuntos_' : '\n📎 _Excel adjunto_';
 
-  setTimeout(() => {
+  setTimeout(function(){
     window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
-    toast('Excel descargado — adjuntalo en WhatsApp');
+    toast('Archivos descargados — adjuntalos en WhatsApp');
   }, 500);
 }
 
@@ -1401,31 +1471,40 @@ function clearAll(){
 // ── FOTOS POR PIQUETE ──
 const piqPhotos = {}; // { '1': [{data:'base64...',caption:'texto'}], '2': [...] }
 
+function takePhoto(){
+  const inp = document.getElementById('photoInput');
+  inp.value = '';
+  inp.click();
+}
+
 function handlePhotos(ev){
+  ev.preventDefault();
+  ev.stopPropagation();
   const files = ev.target.files;
   if(!files.length) return;
   if(!piqPhotos[currentPiq]) piqPhotos[currentPiq] = [];
   const maxW = 1200;
-  let pending = files.length;
-  Array.from(files).forEach(f => {
-    const reader = new FileReader();
-    reader.onload = e => {
-      const img = new Image();
-      img.onload = () => {
-        const scale = img.width > maxW ? maxW / img.width : 1;
-        const c = document.createElement('canvas');
-        c.width = img.width * scale;
-        c.height = img.height * scale;
-        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-        const data = c.toDataURL('image/jpeg', 0.7);
-        piqPhotos[currentPiq].push({ data, caption: '' });
-        pending--;
-        if(pending === 0){ renderPhotoPreview(); toast('📷 ' + files.length + ' foto(s) agregada(s)'); }
-      };
-      img.src = e.target.result;
+  const f = files[0];
+  const reader = new FileReader();
+  reader.onload = function(e){
+    const img = new Image();
+    img.onload = function(){
+      const scale = img.width > maxW ? maxW / img.width : 1;
+      const c = document.createElement('canvas');
+      c.width = img.width * scale;
+      c.height = img.height * scale;
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      const data = c.toDataURL('image/jpeg', 0.7);
+      piqPhotos[currentPiq].push({ data: data, caption: '' });
+      renderPhotoPreview();
+      toast('📷 Foto agregada al Piquete ' + currentPiq);
+      // Scroll to photo preview
+      const list = document.getElementById('photoPreviewList');
+      if(list) setTimeout(function(){ list.scrollIntoView({behavior:'smooth', block:'end'}); }, 200);
     };
-    reader.readAsDataURL(f);
-  });
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(f);
   ev.target.value = '';
 }
 
@@ -1454,96 +1533,6 @@ function removePhoto(idx){
 
 function getTotalPhotoCount(){
   let t = 0; for(const k in piqPhotos) t += piqPhotos[k].length; return t;
-}
-
-async function generatePhotoPDF(){
-  const total = getTotalPhotoCount();
-  if(!total){ toast('No hay fotos para generar PDF', 'err'); return; }
-  if(typeof window.jspdf === 'undefined'){
-    toast('Cargando librería PDF...');
-    try { await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'); }
-    catch(e){ toast('Error al cargar librería PDF','err'); return; }
-  }
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-  const pageW = 210, pageH = 297;
-  const margin = 15;
-  const contentW = pageW - margin * 2;
-  const obraName = document.getElementById('obraName')?.value || '';
-  const relevNum = document.getElementById('relevNum')?.value || '';
-  let first = true;
-
-  const sortedPiqs = Object.keys(piqPhotos).sort((a,b) => {
-    const na = parseInt(a), nb = parseInt(b);
-    if(!isNaN(na) && !isNaN(nb)) return na - nb;
-    return a.localeCompare(b);
-  });
-
-  sortedPiqs.forEach(piq => {
-    const photos = piqPhotos[piq];
-    if(!photos || !photos.length) return;
-    photos.forEach((photo, idx) => {
-      if(!first) doc.addPage();
-      first = false;
-
-      // Header
-      doc.setFillColor(0, 120, 60);
-      doc.rect(0, 0, pageW, 22, 'F');
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(14);
-      doc.setFont('helvetica', 'bold');
-      doc.text('PAMAR - Piqueteo de Materiales', margin, 14);
-
-      // Obra + Relev info
-      doc.setTextColor(60, 60, 60);
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'normal');
-      let infoY = 30;
-      if(obraName){ doc.text('Obra: ' + obraName, margin, infoY); infoY += 6; }
-      if(relevNum){ doc.text('Relevamiento: ' + relevNum, margin, infoY); infoY += 6; }
-      doc.text('Fecha: ' + today(), margin, infoY);
-      infoY += 6;
-
-      // Piquete + caption title
-      doc.setFontSize(13);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(0, 100, 50);
-      infoY += 4;
-      const title = 'Piquete ' + piq + (photos.length > 1 ? ' — Foto ' + (idx+1) + '/' + photos.length : '');
-      doc.text(title, margin, infoY);
-      infoY += 6;
-
-      if(photo.caption){
-        doc.setFontSize(11);
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(30, 30, 30);
-        const lines = doc.splitTextToSize(photo.caption, contentW);
-        doc.text(lines, margin, infoY);
-        infoY += lines.length * 5 + 4;
-      }
-
-      // Photo
-      infoY += 2;
-      const maxImgH = pageH - infoY - margin - 10;
-      try {
-        const imgProps = doc.getImageProperties(photo.data);
-        let imgW = contentW;
-        let imgH = (imgProps.height / imgProps.width) * imgW;
-        if(imgH > maxImgH){ imgH = maxImgH; imgW = (imgProps.width / imgProps.height) * imgH; }
-        const imgX = margin + (contentW - imgW) / 2;
-        doc.addImage(photo.data, 'JPEG', imgX, infoY, imgW, imgH);
-      } catch(e){ doc.text('[Error al cargar imagen]', margin, infoY + 10); }
-
-      // Footer
-      doc.setFontSize(8);
-      doc.setTextColor(150, 150, 150);
-      doc.text('Generado con Piqueteo PAMAR', margin, pageH - 8);
-      doc.text('Pág. ' + doc.getNumberOfPages(), pageW - margin - 15, pageH - 8);
-    });
-  });
-
-  doc.save('Piqueteo_Fotos_' + (obraName || 'obra').replace(/[^a-zA-Z0-9]/g,'_') + '_' + today() + '.pdf');
-  toast('✓ PDF generado con ' + total + ' foto(s)');
 }
 
 // ── LAZY LOAD LIBS ──
