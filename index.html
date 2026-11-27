@@ -197,21 +197,6 @@ body.dark .kit-btn{background:var(--edenor-lt);border-color:var(--edenor)}
 body.dark .kit-item-row{background:#15201a}
 body.dark .editable-cell input{background:#1e2c24;color:var(--ink);border-color:var(--edenor)}
 body.dark .editable-cell:active{background:#2a3a20!important}
-/* ── PHOTO SECTION ── */
-.photo-section{margin-top:10px;padding:10px 0;border-top:1px dashed var(--line)}
-.photo-btn{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:10px;background:var(--edenor-lt);border:2px dashed var(--edenor);border-radius:10px;color:var(--edenor);font-size:13px;font-weight:600;cursor:pointer}
-.photo-btn:active{background:var(--edenor);color:#fff}
-.photo-preview-list{display:flex;flex-direction:column;gap:8px;margin-top:8px}
-.photo-item{position:relative;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--white)}
-.photo-item img{width:100%;max-height:200px;object-fit:cover;display:block}
-.photo-item .photo-caption{width:100%;border:none;border-top:1px solid var(--line);padding:8px 10px;font-size:13px;font-family:inherit;background:var(--panel)}
-.photo-item .photo-caption:focus{outline:none;background:#fff;border-top-color:var(--edenor)}
-.photo-item .photo-remove{position:absolute;top:6px;right:6px;width:28px;height:28px;border-radius:50%;background:rgba(0,0,0,.6);color:#fff;border:none;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center}
-.photo-count{font-size:11px;color:var(--gray);margin-top:4px;text-align:center}
-
-body.dark .photo-btn{background:var(--edenor-lt);border-color:var(--edenor);color:var(--edenor)}
-body.dark .photo-item{background:#1a2420;border-color:var(--line)}
-body.dark .photo-item .photo-caption{background:#1e2c24;color:var(--ink);border-top-color:var(--line)}
 body.dark .saved-item{border-bottom-color:#2a3630}
 body.dark .saved-item:active{background:#1e2c24}
 body.dark .sync-bar.ok{background:#1a3a25;color:#6fcc8a}
@@ -337,14 +322,6 @@ body.dark .dark-toggle{font-size:16px;padding:5px 8px}
     <div class="ss-list" id="mat-suggestions" style="position:relative;margin-top:4px;border-top:1px solid var(--edenor);border-radius:8px"></div>
 
     <button class="btn-primary" onclick="addMaterial()" style="margin-top:10px">➕ Agregar al piquete</button>
-
-    <!-- Fotos del piquete -->
-    <div class="photo-section">
-      <input type="file" id="photoInput" accept="image/*" capture="environment" style="display:none" onchange="handlePhotos(event)">
-      <button class="photo-btn" onclick="takePhoto()">📷 Agregar foto al Piquete <span id="photo-piq-label"></span></button>
-      <div id="photoPreviewList" class="photo-preview-list"></div>
-      <div id="photoCount" class="photo-count"></div>
-    </div>
   </div>
 
   <!-- Kits rápidos -->
@@ -408,8 +385,8 @@ body.dark .dark-toggle{font-size:16px;padding:5px 8px}
   <!-- Actions -->
   <div class="actions">
     <button class="btn-sm" style="background:var(--accent);color:#fff" onclick="saveLocal()">💾 Guardar</button>
-    <button class="btn-sm" style="background:var(--edenor);color:#fff" onclick="exportAll()">📥 Descargar</button>
-    <button class="btn-sm" style="background:#25D366;color:#fff" onclick="shareAll()">📲 WhatsApp</button>
+    <button class="btn-sm" style="background:var(--edenor);color:#fff" onclick="exportCSV()">📥 CSV</button>
+    <button class="btn-sm" style="background:#25D366;color:#fff" onclick="shareWhatsApp()">📲 WhatsApp</button>
     <button class="btn-sm" style="background:var(--danger-lt);color:var(--danger)" onclick="clearAll()">🗑️</button>
   </div>
 </div>
@@ -698,11 +675,9 @@ function renderPiquetes(){
     return `<div class="piq-chip ${p===currentPiq?'active':''}" onclick="selectPiq('${esc(p)}')" ondblclick="piqStartEdit('${esc(p)}')">${esc(p)}</div>`;
   }).join('') + `<button class="piq-add" onclick="piqAdd()">+ Piq</button>`;
   document.getElementById('mat-piq-label').textContent = currentPiq;
-  const pLabel = document.getElementById('photo-piq-label');
-  if(pLabel) pLabel.textContent = '(Piq ' + currentPiq + ')';
 }
 
-function selectPiq(p){ currentPiq=p; editingPiq=null; renderPiquetes(); renderPhotoPreview(); }
+function selectPiq(p){ currentPiq=p; editingPiq=null; renderPiquetes(); }
 
 function nextPiq(){
   const idx = piquetes.indexOf(currentPiq);
@@ -1251,192 +1226,64 @@ function loadLastCuadrilla(){
   }
 }
 
-// ── EXPORT XLSX (Edenor format) ──
-function buildXlsxData(){
+// ── EXPORT CSV (Edenor format) ──
+function exportCSV(){
   const mats = Object.keys(grilla);
-  mats.sort((a,b) => String(a).localeCompare(String(b),'es',{numeric:true}));
-  const rows = [];
-  // Header info
-  rows.push(['','PEDIDO:', obraInfo.grafo||'']);
-  rows.push(['','GRAFO:', obraInfo.grafo||'']);
-  rows.push(['','INICIATIVA:', obraInfo.iniciativa||'']);
-  rows.push(['','PEP:', obraInfo.pep||'']);
-  rows.push(['','OBRA:', obraInfo.obra||'']);
-  rows.push(['','SUPERVISOR:', obraInfo.supervisor||'']);
-  rows.push(['','Dirección:', obraInfo.direccion||'']);
-  rows.push([]);
-  // Column headers
-  const header = ['MATRICULA','DESCRIPCION'].concat(piquetes.map(p => 'Piquete '+p)).concat(['TOTAL','FLECHADO']);
-  rows.push(header);
-  // Data rows
-  mats.forEach(mat => {
-    const row = grilla[mat];
-    let total = 0;
-    const vals = piquetes.map(p => { const v = row.piquetes[p]||0; total+=v; return v; });
-    const flech = row.flechado ? 'SI' : '';
-    rows.push([mat, row.desc].concat(vals).concat([total, flech]));
-  });
-  // Totals row
-  const totR = ['','TOTALES'].concat(piquetes.map(p =>
-    mats.reduce((s,m) => s + (grilla[m].piquetes[p]||0), 0)
-  ));
-  totR.push(mats.reduce((s,m) => s + Object.values(grilla[m].piquetes).reduce((a,b)=>a+b,0), 0));
-  totR.push('');
-  rows.push(totR);
-  return rows;
-}
+  if(!mats.length){ toast('No hay datos','err'); return; }
 
-function generateXlsxBlob(){
-  const rows = buildXlsxData();
-  const ws = XLSX.utils.aoa_to_sheet(rows);
-  // Column widths
-  const colCount = rows[8] ? rows[8].length : 5;
-  ws['!cols'] = [{wch:12},{wch:45}];
-  for(let i=2;i<colCount;i++) ws['!cols'].push({wch:12});
-  // Bold header row (row index 8)
-  const headerRow = 8;
-  for(let c=0;c<colCount;c++){
-    const cell = XLSX.utils.encode_cell({r:headerRow,c});
-    if(ws[cell]){ if(!ws[cell].s) ws[cell].s = {}; ws[cell].s.font = {bold:true}; }
-  }
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Piqueteo');
-  const wbout = XLSX.write(wb, {bookType:'xlsx', type:'array'});
-  return new Blob([wbout], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
-}
-
-function getXlsxFileName(){
-  return 'piqueteo_' + (obraInfo.obra||'obra').replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ]/g,'_').slice(0,20) + '_' + today() + '.xlsx';
-}
-
-// ── LOAD LIBS HELPER ──
-async function ensureXLSX(){
-  if(typeof XLSX === 'undefined'){
-    toast('Cargando Excel...');
-    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
-  }
-}
-async function ensureJsPDF(){
-  if(typeof window.jspdf === 'undefined'){
-    toast('Cargando PDF...');
-    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
-  }
-}
-
-function downloadBlob(blob, name){
+  const csv = buildCSV();
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = name;
-  document.body.appendChild(a); a.click();
+  a.href = url;
+  a.download = 'piqueteo_' + (obraInfo.obra||'obra').replace(/\s+/g,'_').slice(0,20) + '_' + today() + '.csv';
+  document.body.appendChild(a);
+  a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+  toast('📥 CSV exportado');
 }
 
-function getPdfFileName(){
-  return 'piqueteo_fotos_' + (obraInfo.obra||'obra').replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ]/g,'_').slice(0,20) + '_' + today() + '.pdf';
-}
-
-function generatePhotoPDFBlob(){
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
-  const pageW=210, pageH=297, margin=15, contentW=pageW-margin*2;
-  const obraName = document.getElementById('obraName')?.value||'';
-  const relevNum = document.getElementById('relevNum')?.value||'';
-  let first = true;
-  const sortedPiqs = Object.keys(piqPhotos).sort((a,b)=>{const na=parseInt(a),nb=parseInt(b);if(!isNaN(na)&&!isNaN(nb))return na-nb;return a.localeCompare(b);});
-  sortedPiqs.forEach(piq=>{
-    const photos=piqPhotos[piq]; if(!photos||!photos.length)return;
-    photos.forEach((photo,idx)=>{
-      if(!first)doc.addPage(); first=false;
-      doc.setFillColor(0,120,60); doc.rect(0,0,pageW,22,'F');
-      doc.setTextColor(255,255,255); doc.setFontSize(14); doc.setFont('helvetica','bold');
-      doc.text('PAMAR - Piqueteo de Materiales',margin,14);
-      doc.setTextColor(60,60,60); doc.setFontSize(10); doc.setFont('helvetica','normal');
-      let infoY=30;
-      if(obraName){doc.text('Obra: '+obraName,margin,infoY);infoY+=6;}
-      if(relevNum){doc.text('Relevamiento: '+relevNum,margin,infoY);infoY+=6;}
-      doc.text('Fecha: '+today(),margin,infoY); infoY+=6;
-      doc.setFontSize(13); doc.setFont('helvetica','bold'); doc.setTextColor(0,100,50); infoY+=4;
-      const title='Piquete '+piq+(photos.length>1?' — Foto '+(idx+1)+'/'+photos.length:'');
-      doc.text(title,margin,infoY); infoY+=6;
-      if(photo.caption){
-        doc.setFontSize(11); doc.setFont('helvetica','normal'); doc.setTextColor(30,30,30);
-        const lines=doc.splitTextToSize(photo.caption,contentW);
-        doc.text(lines,margin,infoY); infoY+=lines.length*5+4;
-      }
-      infoY+=2; const maxImgH=pageH-infoY-margin-10;
-      try{
-        const imgProps=doc.getImageProperties(photo.data);
-        let imgW=contentW, imgH=(imgProps.height/imgProps.width)*imgW;
-        if(imgH>maxImgH){imgH=maxImgH;imgW=(imgProps.width/imgProps.height)*imgH;}
-        doc.addImage(photo.data,'JPEG',margin+(contentW-imgW)/2,infoY,imgW,imgH);
-      }catch(e){doc.text('[Error al cargar imagen]',margin,infoY+10);}
-      doc.setFontSize(8); doc.setTextColor(150,150,150);
-      doc.text('Generado con Piqueteo PAMAR',margin,pageH-8);
-      doc.text('Pág. '+doc.getNumberOfPages(),pageW-margin-15,pageH-8);
-    });
-  });
-  return doc.output('blob');
-}
-
-// ── EXPORT ALL (Excel + PDF fotos) ──
-async function exportAll(){
+// ── SHARE WHATSAPP (CSV file) ──
+function shareWhatsApp(){
   const mats = Object.keys(grilla);
   if(!mats.length){ toast('No hay datos','err'); return; }
-  try{ await ensureXLSX(); }catch(e){ toast('Error cargando Excel','err'); return; }
-  const xlsxBlob = generateXlsxBlob();
-  downloadBlob(xlsxBlob, getXlsxFileName());
-  const hasPhotos = getTotalPhotoCount() > 0;
-  if(hasPhotos){
-    try{ await ensureJsPDF(); }catch(e){ toast('Error cargando PDF','err'); return; }
-    const pdfBlob = generatePhotoPDFBlob();
-    downloadBlob(pdfBlob, getPdfFileName());
-    toast('📥 Excel + PDF de fotos descargados');
-  } else {
-    toast('📥 Excel descargado (sin fotos)');
-  }
-}
 
-// ── SHARE WHATSAPP (Excel + PDF fotos) ──
-async function shareAll(){
-  const mats = Object.keys(grilla);
-  if(!mats.length){ toast('No hay datos','err'); return; }
-  try{ await ensureXLSX(); }catch(e){ toast('Error cargando Excel','err'); return; }
+  // Generate CSV
+  const csvContent = buildCSV();
+  const fileName = 'piqueteo_' + (obraInfo.obra||'obra').replace(/\s+/g,'_').slice(0,20) + '_' + today() + '.csv';
+  const csvBlob = new Blob([csvContent], {type:'text/csv;charset=utf-8'});
+  const csvFile = new File([csvBlob], fileName, {type:'text/csv'});
 
-  const xlsxBlob = generateXlsxBlob();
-  const xlsxName = getXlsxFileName();
-  const xlsxFile = new File([xlsxBlob], xlsxName, {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
-
-  const files = [xlsxFile];
-  const hasPhotos = getTotalPhotoCount() > 0;
-
-  if(hasPhotos){
-    try{ await ensureJsPDF(); }catch(e){ /* PDF optional */ }
-    if(typeof window.jspdf !== 'undefined'){
-      const pdfBlob = generatePhotoPDFBlob();
-      const pdfFile = new File([pdfBlob], getPdfFileName(), {type:'application/pdf'});
-      files.push(pdfFile);
-    }
-  }
-
-  if(navigator.canShare && navigator.canShare({files})){
+  // Try native share with file
+  if(navigator.canShare && navigator.canShare({files:[csvFile]})){
     navigator.share({
       title: 'Piqueteo - ' + (obraInfo.obra||''),
       text: '📐 Piqueteo: ' + (obraInfo.obra||'') + ' - ' + (obraInfo.cuadrilla||'') + ' (' + new Date().toLocaleDateString('es-AR') + ')',
-      files: files
-    }).catch(function(){ fallbackShareAll(xlsxBlob, xlsxName); });
+      files: [csvFile]
+    }).catch(err => {
+      // Fallback: download + WhatsApp message
+      fallbackShare(csvContent, fileName);
+    });
   } else {
-    fallbackShareAll(xlsxBlob, xlsxName);
+    // Fallback for browsers that don't support file sharing
+    fallbackShare(csvContent, fileName);
   }
 }
 
-function fallbackShareAll(xlsxBlob, xlsxName){
-  downloadBlob(xlsxBlob, xlsxName);
-  const hasPhotos = getTotalPhotoCount() > 0;
-  if(hasPhotos && typeof window.jspdf !== 'undefined'){
-    downloadBlob(generatePhotoPDFBlob(), getPdfFileName());
-  }
+function fallbackShare(csvContent, fileName){
+  // Download the CSV first
+  const blob = new Blob([csvContent], {type:'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 
+  // Then open WhatsApp with a summary message
   const mats = Object.keys(grilla);
   let grand = 0;
   mats.forEach(m => { grand += Object.values(grilla[m].piquetes).reduce((a,b)=>a+b,0); });
@@ -1446,13 +1293,51 @@ function fallbackShareAll(xlsxBlob, xlsxName){
   text += '👷 Cuadrilla: ' + (obraInfo.cuadrilla||'-') + '\n';
   if(obraInfo.grafo) text += '📋 GRAFO: ' + obraInfo.grafo + '\n';
   text += '📅 ' + new Date().toLocaleDateString('es-AR') + '\n';
-  text += '📊 ' + mats.length + ' mat · ' + piquetes.length + ' piq · ' + grand + ' uds\n';
-  text += hasPhotos ? '\n📎 _Excel + PDF fotos adjuntos_' : '\n📎 _Excel adjunto_';
+  text += '📊 ' + mats.length + ' matrículas · ' + piquetes.length + ' piquetes · ' + grand + ' unidades\n';
+  text += '\n📎 _Archivo CSV adjunto_';
 
-  setTimeout(function(){
+  setTimeout(() => {
     window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
-    toast('Archivos descargados — adjuntalos en WhatsApp');
+    toast('CSV descargado — adjuntalo en WhatsApp');
   }, 500);
+}
+
+function buildCSV(){
+  const mats = Object.keys(grilla);
+  mats.sort((a,b) => String(a).localeCompare(String(b),'es',{numeric:true}));
+
+  const sep = ';';
+  const esc2 = v => { v=String(v??''); return /[;"\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; };
+
+  const lines = [];
+  lines.push(['','PEDIDO:',esc2(obraInfo.grafo||'')].join(sep));
+  lines.push(['','GRAFO:',esc2(obraInfo.grafo||'')].join(sep));
+  lines.push(['','INICIATIVA:',esc2(obraInfo.iniciativa||'')].join(sep));
+  lines.push(['','PEP:',esc2(obraInfo.pep||'')].join(sep));
+  lines.push(['','OBRA:',esc2(obraInfo.obra||'')].join(sep));
+  lines.push(['','SUPERVISOR:',esc2(obraInfo.supervisor||'')].join(sep));
+  lines.push(['','Dirección:',esc2(obraInfo.direccion||'')].join(sep));
+  lines.push('');
+
+  const header = ['MATRICULA','DESCRIPCION'].concat(piquetes.map(p => 'Piquete '+p)).concat(['TOTAL','FLECHADO']);
+  lines.push(header.map(esc2).join(sep));
+
+  mats.forEach(mat => {
+    const row = grilla[mat];
+    let total = 0;
+    const vals = piquetes.map(p => { const v = row.piquetes[p]||0; total+=v; return v; });
+    const flech = row.flechado ? 'SI' : '';
+    lines.push([mat, row.desc].concat(vals).concat([total, flech]).map(esc2).join(sep));
+  });
+
+  const totR = ['','TOTALES'].concat(piquetes.map(p =>
+    mats.reduce((s,m) => s + (grilla[m].piquetes[p]||0), 0)
+  ));
+  totR.push(mats.reduce((s,m) => s + Object.values(grilla[m].piquetes).reduce((a,b)=>a+b,0), 0));
+  totR.push('');
+  lines.push(totR.map(esc2).join(sep));
+
+  return '﻿' + lines.join('\r\n');
 }
 
 // ── CLEAR ──
@@ -1461,91 +1346,9 @@ function clearAll(){
   grilla = {};
   piquetes = ['1'];
   currentPiq = '1';
-  for(const k in piqPhotos) delete piqPhotos[k];
   renderPiquetes();
   renderGrilla();
-  renderPhotoPreview();
   toast('Datos limpiados');
-}
-
-// ── FOTOS POR PIQUETE ──
-const piqPhotos = {}; // { '1': [{data:'base64...',caption:'texto'}], '2': [...] }
-
-function takePhoto(){
-  const inp = document.getElementById('photoInput');
-  inp.value = '';
-  inp.click();
-}
-
-function handlePhotos(ev){
-  ev.preventDefault();
-  ev.stopPropagation();
-  const files = ev.target.files;
-  if(!files.length) return;
-  if(!piqPhotos[currentPiq]) piqPhotos[currentPiq] = [];
-  const maxW = 1200;
-  const f = files[0];
-  const reader = new FileReader();
-  reader.onload = function(e){
-    const img = new Image();
-    img.onload = function(){
-      const scale = img.width > maxW ? maxW / img.width : 1;
-      const c = document.createElement('canvas');
-      c.width = img.width * scale;
-      c.height = img.height * scale;
-      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-      const data = c.toDataURL('image/jpeg', 0.7);
-      piqPhotos[currentPiq].push({ data: data, caption: '' });
-      renderPhotoPreview();
-      toast('📷 Foto agregada al Piquete ' + currentPiq);
-      // Scroll to photo preview
-      const list = document.getElementById('photoPreviewList');
-      if(list) setTimeout(function(){ list.scrollIntoView({behavior:'smooth', block:'end'}); }, 200);
-    };
-    img.src = e.target.result;
-  };
-  reader.readAsDataURL(f);
-  ev.target.value = '';
-}
-
-function renderPhotoPreview(){
-  const list = document.getElementById('photoPreviewList');
-  const countEl = document.getElementById('photoCount');
-  const photos = piqPhotos[currentPiq] || [];
-  if(!photos.length){ list.innerHTML = ''; countEl.textContent = ''; return; }
-  list.innerHTML = photos.map((p, i) => `
-    <div class="photo-item">
-      <img src="${p.data}" alt="Foto ${i+1}">
-      <input class="photo-caption" type="text" placeholder="Leyenda / título de la foto..." value="${esc(p.caption)}" onchange="updateCaption(${i}, this.value)">
-      <button class="photo-remove" onclick="removePhoto(${i})">✕</button>
-    </div>`).join('');
-  countEl.textContent = photos.length + ' foto(s) en Piquete ' + currentPiq;
-  document.getElementById('photo-piq-label').textContent = '(Piq ' + currentPiq + ')';
-}
-
-function updateCaption(idx, val){
-  if(piqPhotos[currentPiq] && piqPhotos[currentPiq][idx]) piqPhotos[currentPiq][idx].caption = val;
-}
-
-function removePhoto(idx){
-  if(piqPhotos[currentPiq]){ piqPhotos[currentPiq].splice(idx, 1); renderPhotoPreview(); }
-}
-
-function getTotalPhotoCount(){
-  let t = 0; for(const k in piqPhotos) t += piqPhotos[k].length; return t;
-}
-
-// ── LAZY LOAD LIBS ──
-function loadScript(url){
-  return new Promise((resolve, reject) => {
-    const existing = document.querySelector('script[src="'+url+'"]');
-    if(existing){ resolve(); return; }
-    const s = document.createElement('script');
-    s.src = url;
-    s.onload = resolve;
-    s.onerror = () => reject(new Error('No se pudo cargar: '+url));
-    document.body.appendChild(s);
-  });
 }
 
 // ── UTILS ──
